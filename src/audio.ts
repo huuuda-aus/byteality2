@@ -4,7 +4,7 @@ const MAX_VOICES = 40;
 
 /** Optional: the original game's sounds, if they are present in public/sounds/ (not part of the repository: they are not redistributable).
  *  Events without a mapping, or any missing file, fall back to the synthesized sounds. */
-const SAMPLE_BASE = `${import.meta.env.BASE_URL}sounds/`;
+const SAMPLE_BASE = `${(import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/'}sounds/`; // no import.meta.env outside Vite (headless tools)
 const SAMPLE_NAMES = ['shoot_gun', 'shoot_cursor', 'shoot_mine', 'shoot_lightning', 'shoot_homing', 'shoot_ballistic', 'shoot_wire', 'shoot_missile',
   'shoot_shock', 'shoot_bomb', 'shoot_nail', 'shoot_bounce', 'shoot_sonic', 'shoot_shockwave', 'enemy_hit', 'enemy_dead', 'enemy_appear',
   'money_arrive', 'bomb_boom', 'explosionsound', ...Array.from({ length: 10 }, (_, i) => `tower_buy${i}`)];
@@ -159,4 +159,4 @@ class Sfx {
 
 export const sfx = new Sfx();
 // the first user gesture unlocks audio
-for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sfx.unlock(), { capture: true });
+if (typeof addEventListener === 'function') for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sfx.unlock(), { capture: true });

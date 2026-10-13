@@ -11,7 +11,8 @@ import { BulletSystem } from './bullets.ts';
 import { Effects } from './effects.ts';
 import { type CombatCtx } from './combat.ts';
 import { WAVE_COLORS, WAVE_TYPE_NAMES, WaveRunner, buildWaves } from './waves.ts';
-import { createTitle, createLevelSelect, createAchievements, createToaster } from './screens.ts';
+import { createTitle, createLevelSelect, createAchievements, createToaster, type CustomEntry } from './screens.ts';
+import { importLevels, loadCustom, removeMine } from './generated.ts';
 import { ROW_SIZE, unlockedRows } from './progress.ts';
 import { save } from './save.ts';
 import { sfx } from './audio.ts';
@@ -45,8 +46,21 @@ addEventListener('resize', resize); resize();
 
 // ---- game state, rebuilt on map change ----
 const params = new URLSearchParams(location.search);
+// a level picked in the generator gallery is handed over through localStorage (?play=1)
+let playName: string | null = null;
+if (params.has('play')) {
+  try { const p = JSON.parse(localStorage.getItem('byteality.play') ?? 'null') as { name: string; map: (typeof mapsByName)[string] } | null; if (p?.map?.nodes) { mapsByName[p.name] = p.map; playName = p.name; } } catch { /* ignore a bad hand-over */ }
+}
+const campaignNames = new Set(campaign.map(([n]) => n));
+/** Generated levels (shipped pack + kept/imported) with the player's best scores; their maps are registered so the game can start them. */
+function customEntries(): CustomEntry[] {
+  const list = loadCustom();
+  for (const l of list) mapsByName[l.name] = l.map;
+  return list.map((l) => ({ ...l, best: save.data.custom[l.name]?.best }));
+}
+customEntries();
 const state: UiState = {
-  map: params.get('map') && mapsByName[params.get('map')!] ? params.get('map')! : campaign[0][0], // level 1
+  map: playName ?? (params.get('map') && mapsByName[params.get('map')!] ? params.get('map')! : campaign[0][0]), // level 1
   tool: 'tower', towerKey: null, autoSpawn: 0, eraserRadius: 40, freeBuild: false,
   damageNumbers: save.data.settings.damageNumbers, allDamage: save.data.settings.allDamage, hpMode: save.data.settings.hpMode,
 };
@@ -124,7 +138,7 @@ function loadMap(name: string) {
 }
 
 /** Progress statistics only count in real play, not in sandbox. */
-const tracking = () => !state.freeBuild;
+const tracking = () => !state.freeBuild && campaignNames.has(state.map); // generated/custom levels do not count toward progress
 function announce(list: Achievement[]) { for (const a of list) toaster.show(a.title, a.desc); }
 function earn(v: number) { money += v; sfx.money(); if (tracking()) { save.data.stats.creditsEarned += v; save.dirty(); } }
 
@@ -154,7 +168,7 @@ function killEnemy(i: number) {
 function endLevel(result: 'over' | 'won') {
   phase = result;
   sim.n = 0; bullets.clear(); // survivors vanish without paying out (original: waarde = 0)
-  const goal = campaign.find(([n]) => n === state.map)?.[1] ?? null;
+  const goal = campaign.find(([n]) => n === state.map)?.[1] ?? mapsByName[state.map]?.goal ?? null;
   const lines = [`Score: ${kills} kills${goal ? ` (goal ${goal})` : ''}`];
   let hasNext = false;
   if (tracking()) {
@@ -169,6 +183,11 @@ function endLevel(result: 'over' | 'won') {
     save.flush();
     const i = campaign.findIndex(([n]) => n === state.map) + 1;
     hasNext = result === 'won' && i < campaign.length && i < rowsAfter * ROW_SIZE;
+  } else if (!state.freeBuild && !campaignNames.has(state.map)) { // generated / imported level: own best score, no unlocks or achievements
+    const prev = save.data.custom[state.map]?.best ?? 0;
+    save.recordCustom(state.map, kills, result === 'won');
+    if (result === 'won' && kills > prev) lines.push(prev > 1 ? `New best! (was ${prev})` : 'First completion!');
+    save.flush();
   } else lines.push('(sandbox: score not saved)');
   overlay.show(result === 'won' ? 'LEVEL COMPLETE' : 'BUILDING DESTROYED', lines, hasNext);
   if (result === 'won') sfx.win(); else sfx.lose();
@@ -270,7 +289,7 @@ let panelOpen = params.has('debug'); // the MVP control panel is hidden; press `
 const syncPanel = () => { panelEl.style.visibility = screen === 'game' && panelOpen ? '' : 'hidden'; };
 addEventListener('keydown', (e) => { if (e.code === 'Backquote') { panelOpen = !panelOpen; syncPanel(); } });
 type Screen = 'title' | 'levels' | 'achievements' | 'game';
-let screen: Screen = params.get('map') && mapsByName[params.get('map')!] ? 'game' : 'title';
+let screen: Screen = playName || (params.get('map') && mapsByName[params.get('map')!]) ? 'game' : 'title';
 const toaster = createToaster(frameEl);
 const achScreen = createAchievements(frameEl, () => showScreen(achFrom));
 let achFrom: Screen = 'title';
@@ -280,16 +299,19 @@ const levelScreen = createLevelSelect(frameEl, {
   onPlay: (name) => startLevel(name),
   onBack: () => showScreen('title'),
   onAchievements: () => openAchievements('levels'),
-  onReset: () => { save.reset(); Object.assign(state, { damageNumbers: true, allDamage: false, hpMode: 'always' }); levelScreen.show(save.best()); },
+  data: () => ({ best: save.best(), custom: customEntries() }),
+  onImport: (text) => importLevels(text),
+  onRemove: (name) => { removeMine(name); delete mapsByName[name]; },
+  onReset: () => { save.reset(); Object.assign(state, { damageNumbers: true, allDamage: false, hpMode: 'always' }); levelScreen.show(); },
   onUnlockAll: () => { // debug: every level at its goal (does not award achievements)
     for (const [n, g] of campaign) { const l = save.data.levels[n] ??= { best: 0, attempts: 0, wins: 0, goalReached: false }; if (l.best < g) l.best = g; l.goalReached = true; }
-    save.flush(); levelScreen.show(save.best());
+    save.flush(); levelScreen.show();
   },
 });
 function showScreen(s: Screen) {
   screen = s;
   titleScreen[s === 'title' ? 'show' : 'hide']();
-  if (s === 'levels') levelScreen.show(save.best()); else levelScreen.hide();
+  if (s === 'levels') levelScreen.show(); else levelScreen.hide();
   if (s === 'achievements') achScreen.show(); else achScreen.hide();
   syncPanel();
   for (const e of [menuBtn, soundBtn, document.getElementById('toolbar'), document.getElementById('credits'), document.getElementById('hud'), document.getElementById('card')]) if (e) (e as HTMLElement).style.visibility = s === 'game' ? '' : 'hidden';
@@ -300,6 +322,8 @@ function startLevel(name: string) { state.map = name; loadMap(name); ui.syncMap(
 function leaveLevel() {
   if (phase === 'playing' && waveRunner.started && tracking()) {
     save.recordLevel(state.map, 0, false, null); announce(checkAchievements()); save.flush();
+  } else if (phase === 'playing' && waveRunner.started && !state.freeBuild && !campaignNames.has(state.map)) {
+    save.recordCustom(state.map, 0, false); save.flush(); // abandoning a generated level counts as a failed attempt too
   }
 }
 const card = createCard(frameEl);
@@ -387,7 +411,7 @@ function frame(now: number) {
     credits: money,    timeLeft: waveRunner.started ? Math.max(0, (levelMap.steps - levelSteps) / 60) : null, totalTime: levelMap.steps / 60,
     wave: w, waveName: WAVE_TYPE_NAMES[wd.type] ?? '', waveRgb: (WAVE_COLORS[wd.type] ?? [255, 255, 255]).map((v) => v / 255) as [number, number, number],
     waveIn: waveRunner.started && phase === 'playing' ? waveRunner.secondsLeft : null,
-    kills, goal: campaign.find(([n]) => n === state.map)?.[1] ?? null,
+    kills, goal: campaign.find(([n]) => n === state.map)?.[1] ?? levelMap.goal ?? null,
   });
   const waveLine = !waveRunner.started ? 'press SPACE to start'
     : `${w} ${WAVE_TYPE_NAMES[wd.type]}\nnext in  ${waveRunner.secondsLeft.toFixed(1)} s\nrate     ${(60 / wd.interval).toFixed(1)}/s x${wd.amount}`;

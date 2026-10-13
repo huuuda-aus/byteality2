@@ -86,7 +86,7 @@
     #levels .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     #levels .row.locked { opacity: .45; }
     #levels .need { flex-basis: 100%; font-size: 8px; color: #45689a; margin-bottom: -4px; }
-    #levels .card { position: relative; flex: 1 1 210px; min-width: 200px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
+    #levels .card { position: relative; flex: 1 1 210px; min-width: 200px; max-width: calc(33.34% - 8px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
     #levels .card:disabled { cursor: default; }
     #levels .card canvas { width: 100%; height: auto; background: #02040c; image-rendering: pixelated; }
     #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff0; font-size: 16px; text-shadow: 2px 2px 0 #000; }
@@ -110,6 +110,15 @@
     .toast { padding: 10px 14px; background: rgba(0, 8, 40, .95); border: 2px solid #ff0; text-align: center; animation: toast 4.5s steps(1) forwards; }
     .toast small { display: block; color: #ff0; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 16px; color: #fff; margin-bottom: 6px; } .toast span { color: #6a9fd8; }
     @keyframes toast { 0% { opacity: 0; } 5% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+    #levels .tabs { width: min(800px, 94%); display: flex; gap: 8px; margin-bottom: 12px; flex: none; flex-wrap: wrap; }
+    #levels .tabs button { padding: 8px 12px; font-size: 8px; color: #45689a; }
+    #levels .tabs button.on { color: #ff0; border-color: #6a9fd8; }
+    #levels .tabs .genlink { margin-left: auto; padding: 8px 12px; font-size: 8px; color: #6a9fd8; background: #000a32; border: 2px solid #14246e; text-decoration: none; line-height: 1.6; } #levels .tabs .genlink:hover { border-color: #6a9fd8; }
+    #levels .tabs .genlink + .imp { margin-left: 0; }
+    #levels .tabs .imp { margin-left: auto; }
+    #levels .note { width: min(800px, 94%); color: #ff0; font-size: 8px; margin-bottom: 10px; flex: none; }
+    #levels .empty { color: #45689a; line-height: 1.8; text-align: center; padding: 40px 12px; font-size: 8px; } #levels .empty b { color: #6a9fd8; font-weight: 400; }
+    #levels .card .rm { position: absolute; right: 36px; top: 12px; color: #f55; font-size: 10px; padding: 0 4px; border: 2px solid #14246e; background: #000a32; cursor: pointer; } #levels .card .rm:hover { border-color: #f55; }
     #levels .foot { flex: none; display: flex; gap: 12px; padding: 8px 0 12px; }
     #levels .foot button { padding: 6px 10px; font-size: 8px; color: #45689a; }
   </style>

@@ -4,3 +4,6 @@ dist
 # original game files, decompiled sources and extracted assets: not redistributable
 reference/
 
+
+# generated levels (tools/levelgen output)
+generated/

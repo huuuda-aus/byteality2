@@ -45,71 +45,70 @@ function disc(x: number, y: number, r: number, rgb: number): THREE.Mesh {
 }
 
 
-function distToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax, dy = by - ay;
-  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)));
-  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+/** Direction the light comes from, in field coordinates (x right, y down): from the top left, a little above the surface. */
+const LIGHT = (() => { const v = [-0.55, -0.7, 0.62], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
+const CARVE_SCALE = 2; // texture pixels per field pixel
+const CARVE_DEPTH = 2.8; // steepness of the groove walls (bigger = stronger bevels)
+
+/** Separable box blur (several passes ~ a gaussian) of a w*h float image, in place. */
+function boxBlur(a: Float32Array, w: number, h: number, r: number, passes: number): void {
+  const t = new Float32Array(Math.max(w, h));
+  const run = (get: (i: number) => number, set: (i: number, v: number) => void, n: number) => {
+    let sum = 0; const win = 2 * r + 1;
+    for (let i = -r; i <= r; i++) sum += get(Math.min(n - 1, Math.max(0, i)));
+    for (let i = 0; i < n; i++) {
+      t[i] = sum / win;
+      sum += get(Math.min(n - 1, i + r + 1)) - get(Math.max(0, i - r));
+    }
+    for (let i = 0; i < n; i++) set(i, t[i]);
+  };
+  for (let p = 0; p < passes; p++) {
+    for (let y = 0; y < h; y++) run((i) => a[y * w + i], (i, v) => { a[y * w + i] = v; }, w);
+    for (let x = 0; x < w; x++) run((i) => a[i * w + x], (i, v) => { a[i * w + x] = v; }, h);
+  }
 }
 
 /**
- * Outline of the union of all path "tubes" (each edge stroked at 2*half width, round joins):
- * side lines and node circles are cut wherever they would run through the inside of another part of the path.
+ * The path as a groove carved into the wood: rasterise the path, blur it into a smooth height field, and light it from LIGHT.
+ * Walls facing the light are brightened, walls facing away are shadowed, and the groove floor is a little darker than the surface.
+ * Returns a transparent overlay covering the playfield.
  */
-function pathOutline(g: Graph, half: number): number[] {
-  // one tube per road: a two-way road (A->B and B->A) is the same tube
-  const seen = new Set<string>();
-  const tubes: [number, number, number, number][] = [];
+function carvedPath(g: Graph): THREE.Mesh {
+  const S = CARVE_SCALE, W = FIELD_W * S, H = (FIELD_H - FIELD_TOP) * S;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true })!;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = PATH_WIDTH * S; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
   for (let i = 0; i < g.eb.length; i++) {
-    const b = g.eb[i], e = g.ee[i], key = b < e ? `${b}-${e}` : `${e}-${b}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    tubes.push([g.nx[b], g.ny[b], g.nx[e], g.ny[e]]);
+    ctx.moveTo(g.nx[g.eb[i]] * S, (g.ny[g.eb[i]] - FIELD_TOP) * S); ctx.lineTo(g.nx[g.ee[i]] * S, (g.ny[g.ee[i]] - FIELD_TOP) * S);
   }
-  // is point p strictly inside any tube (further than `margin` from its boundary)?
-  const inside = (x: number, y: number, margin: number) => {
-    for (const [ax, ay, bx, by] of tubes) if (distToSegment(x, y, ax, ay, bx, by) < half - margin) return true;
-    return false;
-  };
-  // circle arcs: drop if inside a tube, or lying on a tube's own side line (that line is drawn already)
-  const covered = (x: number, y: number) => {
-    for (const [ax, ay, bx, by] of tubes) {
-      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
-      const t = ((x - ax) * dx + (y - ay) * dy) / l2;
-      const d = distToSegment(x, y, ax, ay, bx, by);
-      if (d < half - 0.05 || (d < half + 0.05 && t > 0 && t < 1)) return true;
-    }
-    return false;
-  };
-  const out: number[] = [];
-  const seg = (x1: number, y1: number, x2: number, y2: number) => out.push(x1, y1, 0, x2, y2, 0);
-
-  for (const [ax, ay, bx, by] of tubes) {
-    const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
-    const nx = (-dy / len) * half, ny = (dx / len) * half;
-    const pieces = Math.max(1, Math.ceil(len)); // ~1 px resolution for the cuts
-    for (const side of [1, -1]) {
-      let runStart = -1;
-      for (let k = 0; k <= pieces; k++) {
-        const t = k / pieces;
-        const keep = k < pieces && !inside(ax + dx * (k + 0.5) / pieces + side * nx, ay + dy * (k + 0.5) / pieces + side * ny, 0.05);
-        if (keep && runStart < 0) runStart = k;
-        if (!keep && runStart >= 0) {
-          const t0 = runStart / pieces;
-          seg(ax + dx * t0 + side * nx, ay + dy * t0 + side * ny, ax + dx * t + side * nx, ay + dy * t + side * ny);
-          runStart = -1;
-        }
-      }
-    }
+  ctx.stroke();
+  const px = ctx.getImageData(0, 0, W, H), m = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) m[i] = px.data[i * 4] / 255;
+  boxBlur(m, W, H, 1, 3); // narrow blur = narrow, crisper bevels
+  const [lx, ly, lz] = LIGHT, D = CARVE_DEPTH;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    const gx = ((x + 1 < W ? m[i + 1] : m[i]) - (x > 0 ? m[i - 1] : m[i])) / 2, gy = ((y + 1 < H ? m[i + W] : m[i]) - (y > 0 ? m[i - W] : m[i])) / 2;
+    // height = -D*m, so the surface normal is (D*gx, D*gy, 1)
+    const nx = D * gx, ny = D * gy, inv = 1 / Math.hypot(nx, ny, 1);
+    const shade = (nx * lx + ny * ly + lz) * inv - lz; // 0 on flat ground, <0 facing away from the light, >0 facing it
+    const floor = 0.38 * m[i]; // the groove floor is darker than the surface
+    let r = 0, gch = 0, b = 0, a: number;
+    if (shade >= 0) { r = 235; gch = 215; b = 190; a = Math.min(0.5, shade * 1.1); }  // lit wall: warm highlight
+    else a = Math.min(0.7, -shade * 1.3);                                           // shadowed wall: black
+    const total = 1 - (1 - a) * (1 - floor); // combine with the floor darkening (black over everything)
+    if (shade >= 0 && floor > 0) { const wf = a / total; r *= wf; gch *= wf; b *= wf; } // blend toward black as the floor term takes over
+    const o = i * 4; px.data[o] = r; px.data[o + 1] = gch; px.data[o + 2] = b; px.data[o + 3] = Math.round(total * 255);
   }
-  const N = 32; // node circles = round joins / caps; keep only arcs that are outside every tube
-  for (let n = 0; n < g.nx.length; n++) {
-    for (let k = 0; k < N; k++) {
-      const a0 = (k / N) * Math.PI * 2, a1 = ((k + 1) / N) * Math.PI * 2, am = (a0 + a1) / 2;
-      if (covered(g.nx[n] + Math.cos(am) * half, g.ny[n] + Math.sin(am) * half)) continue;
-      seg(g.nx[n] + Math.cos(a0) * half, g.ny[n] + Math.sin(a0) * half, g.nx[n] + Math.cos(a1) * half, g.ny[n] + Math.sin(a1) * half);
-    }
-  }
-  return out;
+  ctx.putImageData(px, 0, 0);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_W, FIELD_H - FIELD_TOP),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  mesh.position.set(FIELD_W / 2, FIELD_TOP + (FIELD_H - FIELD_TOP) / 2, -0.5);
+  return mesh;
 }
 
 /** Static layer: background, path outline, sources/sinks, buildings. */
@@ -123,7 +122,7 @@ export function buildStaticScene(g: Graph): THREE.Group {
   bg.position.set(FIELD_W / 2, FIELD_TOP + (FIELD_H - FIELD_TOP) / 2, -1);
   group.add(bg);
 
-  group.add(lines(pathOutline(g, PATH_WIDTH / 2), 0xaab4c8, 0.45));
+  group.add(carvedPath(g));
 
   for (let n = 0; n < g.nx.length; n++) {
     if (g.isSink[n]) group.add(disc(g.nx[n], g.ny[n], 7.5, 0xff0000));

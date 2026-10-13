@@ -1,6 +1,6 @@
-import modelsJson from '../assets/models.json';
-import towersJson from '../assets/towers.json';
-import mapsJson from '../assets/maps.json';
+import modelsJson from '../assets/models.json' with { type: 'json' };
+import towersJson from '../assets/towers.json' with { type: 'json' };
+import mapsJson from '../assets/maps.json' with { type: 'json' };
 
 export const FIELD_W = 640;
 export const FIELD_H = 480;
@@ -40,6 +40,7 @@ export interface MapData {
   edges: [number, number][]; // 1-based node indices (GameMaker heritage)
   buildings: [number, number, number][]; // x, y, hp
   towers: string[];
+  goal?: number; // generated levels carry their own goal score (campaign goals live in the campaign list)
 }
 
 export const models = modelsJson as unknown as ModelSet;

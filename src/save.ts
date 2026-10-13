@@ -13,6 +13,7 @@ export interface SaveData {
   towersBuilt: Record<string, number>; // per tower type, ever
   maxTowerLevel: number; // highest level index reached by any tower (0..9)
   maxWave: number; // furthest wave reached in any level
+  custom: Record<string, { best: number; attempts: number }>; // generated / imported levels (kept apart: they never count toward unlocks or achievements)
   achievements: Record<string, number>; // id -> unlock time (ms since epoch)
   settings: Settings;
 }
@@ -20,7 +21,7 @@ export interface SaveData {
 const fresh = (): SaveData => ({
   v: 1, created: Date.now(), levels: {},
   stats: { kills: 0, towersBuilt: 0, upgrades: 0, wins: 0, losses: 0, creditsEarned: 0 },
-  towersBuilt: {}, maxTowerLevel: 0, maxWave: 0, achievements: {},
+  towersBuilt: {}, maxTowerLevel: 0, maxWave: 0, custom: {}, achievements: {},
   settings: { hpMode: 'always', damageNumbers: true, allDamage: false, sound: true },
 });
 
@@ -34,6 +35,7 @@ function normalize(raw: unknown): SaveData {
   Object.assign(d.stats, r.stats ?? {});
   Object.assign(d.towersBuilt, r.towersBuilt ?? {});
   d.maxTowerLevel = r.maxTowerLevel ?? 0; d.maxWave = r.maxWave ?? 0;
+  for (const [k, c] of Object.entries(r.custom ?? {})) if (c && typeof c.best === 'number') d.custom[k] = { best: c.best, attempts: c.attempts ?? 0 };
   Object.assign(d.achievements, r.achievements ?? {});
   Object.assign(d.settings, r.settings ?? {});
   return d;
@@ -85,6 +87,12 @@ class SaveStore {
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(this.data.levels)) if (v.best > 0) out[k] = v.best;
     return out;
+  }
+
+  /** Score of a generated/imported level (failed = 1, like the campaign). */
+  recordCustom(name: string, kills: number, won: boolean): void {
+    const c = this.data.custom[name] ??= { best: 0, attempts: 0 };
+    c.attempts++; c.best = Math.max(c.best, won ? kills : 1); this.dirty();
   }
 
   /** Record a finished (or abandoned) attempt: failed/abandoned scores 1, like the original. */

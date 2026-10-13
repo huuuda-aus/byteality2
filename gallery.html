@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generated levels</title>
+  <style>
+    body { margin: 0; background: #000a1e; color: #9cf; font: 8px/1.6 'Press Start 2P', monospace; padding: 16px; }
+    h1 { font-size: 14px; font-weight: 400; color: #6a9fd8; margin: 0 0 8px; }
+    .meta { color: #45689a; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+    .card { border: 2px solid #14246e; background: #000a32; padding: 8px; }
+    .card canvas { width: 100%; height: auto; background: #02040c; display: block; margin-bottom: 6px; }
+    .card b { color: #ff0; font-weight: 400; } .card .warn { color: #fa5; } .card .row { color: #6a9fd8; }
+    .tools { margin: 0 0 16px; color: #6a9fd8; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .tools input { font: inherit; background: #000a32; color: #9cf; border: 2px solid #14246e; padding: 4px; }
+    button { font: inherit; color: #6a9fd8; background: #000a32; border: 2px solid #14246e; padding: 6px 10px; cursor: pointer; } button:hover:not(:disabled) { border-color: #6a9fd8; } button:disabled { opacity: .5; cursor: default; }
+    .card .btns { display: flex; gap: 8px; margin-top: 8px; } .card.kept { border-color: #ff0; } #kept { margin-bottom: 20px; }
+    .tally { margin: 0 0 16px; color: #6a9fd8; } .tally div { margin: 2px 0; }
+  </style>
+</head>
+<body>
+  <h1>Generated levels</h1>
+  <div class="tools">seed <input id="seed" size="7" placeholder="random"> count <input id="count" size="3" value="30">
+    <label><input type="checkbox" id="calibrate" checked> play-test with bot (slower)</label> <button id="new">new batch</button> <button id="random">new random batch</button> <button id="export" disabled>export kept (.json)</button></div>
+  <h1 id="keptTitle"></h1>
+  <div class="meta" id="importHint"></div>
+  <div class="grid" id="kept"></div>
+  <h1>Current batch</h1>
+  <div class="meta" id="meta"></div>
+  <div class="tally" id="tally"></div>
+  <div class="grid" id="grid"></div>
+  <script type="module" src="/src/gallery.ts"></script>
+</body>
+</html>

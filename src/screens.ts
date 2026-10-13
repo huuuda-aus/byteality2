@@ -57,30 +57,31 @@ export function createTitle(frame: HTMLElement, onStart: () => void, onAchieveme
   return { show() { el.hidden = false; }, hide() { el.hidden = true; } };
 }
 
-export interface LevelSelectCallbacks { onPlay(name: string): void; onBack(): void; onReset(): void; onUnlockAll(): void; onAchievements(): void }
+export interface LevelSelectCallbacks {
+  onPlay(name: string): void; onBack(): void; onReset(): void; onUnlockAll(): void; onAchievements(): void;
+  onImport(text: string): { added: number; rejected: number; error?: string }; onRemove(name: string): void;
+  /** Current scores and generated levels; asked for on every redraw. */
+  data(): { best: Record<string, number>; custom: CustomEntry[] };
+}
+export interface CustomEntry { name: string; map: MapData; source: 'pack' | 'mine'; best?: number }
 
-/** Level picker: rows of ROW_SIZE maps; a row is locked until the total kills reach the goals of all earlier rows. */
+/** Level picker with two tabs. "Original levels": rows of ROW_SIZE maps, a row is locked until the total kills reach the goals of all earlier rows.
+ *  "Generated levels": hand-picked generated levels (the shipped pack plus ones kept in the gallery or imported), all playable. */
 export function createLevelSelect(frame: HTMLElement, cb: LevelSelectCallbacks) {
   const el = document.createElement('div'); el.className = 'screen'; el.id = 'levels'; el.hidden = true; frame.append(el);
-  const previews = new Map<string, HTMLCanvasElement>(); // thumbnails are drawn once
-  const preview = (name: string) => {
+  const previews = new Map<string, HTMLCanvasElement>(); // thumbnails of the original levels are drawn once
+  const copyOf = (c: HTMLCanvasElement) => { const copy = document.createElement('canvas'); copy.width = c.width; copy.height = c.height; copy.getContext('2d')!.drawImage(c, 0, 0); return copy; };
+  const preview = (name: string, map?: MapData) => {
+    if (map) { const c = document.createElement('canvas'); c.width = 240; c.height = 130; drawMapPreview(c, map); return c; }
     let c = previews.get(name);
     if (!c) { c = document.createElement('canvas'); c.width = 240; c.height = 130; drawMapPreview(c, mapsByName[name]); previews.set(name, c); }
-    const copy = document.createElement('canvas'); copy.width = c.width; copy.height = c.height; copy.getContext('2d')!.drawImage(c, 0, 0);
-    return copy;
+    return copyOf(c);
   };
-  function render(best: Record<string, number>) {
-    const open = unlockedRows(best), total = totalKills(best);
-    const next = open < rowCount ? requiredKills(open) : null;
-    el.innerHTML = `<div class="bar"><button id="back">&lt; back</button><h2>Select level</h2>
-      <div class="kills">total kills <b>${total.toLocaleString('en-US')}</b>${next !== null ? ` | next row at <b>${next.toLocaleString('en-US')}</b>` : ' | all rows unlocked'}</div></div>
-      <div class="rows"></div>
-      <div class="foot"><button id="achBtn">achievements</button><button id="reset">reset progress</button><button id="unlock">unlock all (debug)</button></div>`;
-    (el.querySelector('#back') as HTMLElement).onclick = cb.onBack;
-    (el.querySelector('#achBtn') as HTMLElement).onclick = cb.onAchievements;
-    (el.querySelector('#reset') as HTMLElement).onclick = () => { if (confirm('Reset all level scores?')) cb.onReset(); };
-    (el.querySelector('#unlock') as HTMLElement).onclick = cb.onUnlockAll;
-    const rows = el.querySelector('.rows')!;
+  let tab: 'original' | 'generated' = 'original', lastBest: Record<string, number> = {}, lastCustom: CustomEntry[] = [], note = '';
+  const fetchData = () => { const d = cb.data(); lastBest = d.best; lastCustom = d.custom; };
+
+  function originalRows(rows: Element, best: Record<string, number>) {
+    const open = unlockedRows(best);
     for (let r = 0; r < rowCount; r++) {
       const locked = r >= open, row = document.createElement('div'); row.className = 'row' + (locked ? ' locked' : '');
       if (locked) row.insertAdjacentHTML('beforeend', `<div class="need">LOCKED - needs ${requiredKills(r).toLocaleString('en-US')} total kills</div>`);
@@ -96,9 +97,67 @@ export function createLevelSelect(frame: HTMLElement, cb: LevelSelectCallbacks) 
       rows.append(row);
     }
   }
+
+  function generatedRows(rows: Element, custom: CustomEntry[]) {
+    if (!custom.length) {
+      rows.insertAdjacentHTML('beforeend', `<p class="empty">No generated levels yet.<br><br>Pick levels in the level generator (<b>gallery.html</b>, press "keep"), then they show up here.<br><br>Or import an exported <b>.json</b> file with the button above.<br><br>To ship levels with the game, save the exported file as <b>assets/generated-levels.json</b>.</p>`);
+      return;
+    }
+    for (let i = 0; i < custom.length; i += ROW_SIZE) {
+      const row = document.createElement('div'); row.className = 'row';
+      for (const lv of custom.slice(i, i + ROW_SIZE)) {
+        const goal = lv.map.goal ?? Infinity, st = statusOf(lv.best, goal);
+        const card = document.createElement('button'); card.className = `card ${st}`;
+        card.innerHTML = `<span class="no">${custom.indexOf(lv) + 1}</span><span class="st" title="${st}"></span><span class="nm">${title(lv.name)}</span>
+          <span class="meta">${lv.best && lv.best > 1 ? `best ${lv.best.toLocaleString('en-US')}` : st === 'failed' ? 'failed' : 'not played'}${lv.map.goal ? ` / goal ${lv.map.goal.toLocaleString('en-US')}` : ''} | ${mmss(lv.map.steps)} | ${lv.source === 'pack' ? 'pack' : 'mine'}</span>`;
+        card.prepend(preview(lv.name, lv.map));
+        if (lv.source === 'mine') {
+          const rm = document.createElement('span'); rm.className = 'rm'; rm.textContent = 'x'; rm.title = 'remove from my levels';
+          rm.onclick = (e) => { e.stopPropagation(); if (confirm(`Remove ${title(lv.name)}?`)) { cb.onRemove(lv.name); render(); } };
+          card.append(rm);
+        }
+        card.onclick = () => cb.onPlay(lv.name);
+        row.append(card);
+      }
+      rows.append(row);
+    }
+  }
+
+  function render() {
+    fetchData();
+    const open = unlockedRows(lastBest), total = totalKills(lastBest);
+    const next = open < rowCount ? requiredKills(open) : null;
+    el.innerHTML = `<div class="bar"><button id="back">&lt; back</button><h2>Select level</h2>
+      <div class="kills">${tab === 'original' ? `total kills <b>${total.toLocaleString('en-US')}</b>${next !== null ? ` | next row at <b>${next.toLocaleString('en-US')}</b>` : ' | all rows unlocked'}` : `<b>${lastCustom.length}</b> generated level${lastCustom.length === 1 ? '' : 's'}`}</div></div>
+      <div class="tabs"><button id="tabOriginal" class="${tab === 'original' ? 'on' : ''}">Original levels</button><button id="tabGenerated" class="${tab === 'generated' ? 'on' : ''}">Generated levels (${lastCustom.length})</button>
+        ${tab === 'generated' ? `${import.meta.env.DEV ? '<a class="genlink" href="/gallery.html" target="_blank">open level generator</a>' : ''}<button id="import" class="imp">import .json</button><input type="file" id="file" accept=".json,application/json" hidden>` : ''}</div>
+      ${tab === 'generated' && note ? `<div class="note">${note}</div>` : ''}
+      <div class="rows"></div>
+      <div class="foot"><button id="achBtn">achievements</button>${tab === 'original' ? '<button id="reset">reset progress</button><button id="unlock">unlock all (debug)</button>' : ''}</div>`;
+    (el.querySelector('#back') as HTMLElement).onclick = cb.onBack;
+    (el.querySelector('#achBtn') as HTMLElement).onclick = cb.onAchievements;
+    (el.querySelector('#tabOriginal') as HTMLElement).onclick = () => { tab = 'original'; note = ''; render(); };
+    (el.querySelector('#tabGenerated') as HTMLElement).onclick = () => { tab = 'generated'; render(); };
+    if (tab === 'original') {
+      (el.querySelector('#reset') as HTMLElement).onclick = () => { if (confirm('Reset all level scores?')) cb.onReset(); };
+      (el.querySelector('#unlock') as HTMLElement).onclick = cb.onUnlockAll;
+      originalRows(el.querySelector('.rows')!, lastBest);
+    } else {
+      const file = el.querySelector('#file') as HTMLInputElement;
+      (el.querySelector('#import') as HTMLElement).onclick = () => file.click();
+      file.onchange = async () => {
+        const f = file.files?.[0]; if (!f) return;
+        const r = cb.onImport(await f.text());
+        note = r.error ? `Import failed: ${r.error}.` : `Imported ${r.added} level${r.added === 1 ? '' : 's'}${r.rejected ? `, skipped ${r.rejected} invalid` : ''}.`;
+        render();
+      };
+      generatedRows(el.querySelector('.rows')!, lastCustom);
+    }
+  }
   return {
-    show(best: Record<string, number>) { render(best); el.hidden = false; },
+    show() { render(); el.hidden = false; },
     hide() { el.hidden = true; },
+    get tab() { return tab; },
     ROW_SIZE,
   };
 }
