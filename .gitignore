@@ -1,0 +1,5 @@
+node_modules
+dist
+
+# original game files, decompiled sources and extracted assets: not redistributable
+reference/

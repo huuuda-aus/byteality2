@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ByteAlity Remake</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: #9cf; font: 8px/1.6 'Press Start 2P', monospace; -webkit-font-smoothing: none; font-smooth: never; text-rendering: optimizeSpeed; }
+    button, select, input { font: inherit; }
+    #stage { position: absolute; inset: 0; display: grid; place-items: center; }
+    canvas { display: block; cursor: crosshair; }
+    /* debug panel (hidden by default) */
+    #panel { position: absolute; bottom: 8px; right: 8px; width: 340px; padding: 8px 10px; background: rgba(0, 8, 40, .88); border: 2px solid #2a3f9a; }
+    #panel h1 { margin: 0 0 8px; font-size: 8px; color: #ff0; font-weight: 400; }
+    #panel label, #panel .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 5px 0; }
+    #panel select, #panel input[type=range] { max-width: 140px; background: #0a1450; color: #9cf; border: 2px solid #2a3f9a; font-size: 8px; }
+    #panel button { background: #0a1450; color: #9cf; border: 2px solid #2a3f9a; padding: 3px 6px; cursor: pointer; font-size: 8px; }
+    #panel button:hover { background: #1a2a80; }
+    #stats { white-space: pre; color: #ff0; margin-top: 8px; }
+    #help { color: #789; margin-top: 8px; line-height: 1.8; }
+    #frame { position: relative; }
+    /* tower toolbar */
+    #toolbar { --tb: 36px; position: absolute; top: 0; left: 8px; right: 372px; height: 15.625%; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 4px; padding: 4px; box-sizing: border-box; pointer-events: none; }
+    #toolbar button { pointer-events: auto; position: relative; width: var(--tb); height: var(--tb); padding: 0; background: rgba(8, 14, 60, .75); border: 2px solid #2a3f9a; cursor: pointer; }
+    #toolbar button[hidden] { display: none; }
+    #toolbar button.dim canvas { opacity: .35; }
+    #toolbar button:hover { border-color: #8af; }
+    #toolbar button.sel { border-color: #ff0; box-shadow: 0 0 0 1px #ff0; }
+    #toolbar canvas { width: 100%; height: 100%; display: block; }
+    #toolbar .n { position: absolute; right: 2px; bottom: 1px; font-size: 8px; line-height: 1; color: #ff0; pointer-events: none; text-shadow: 1px 1px 0 #000; }
+    /* top-right HUD (drawn at 2x) */
+    #hud { position: absolute; right: 8px; top: 8px; width: 176px; transform-origin: top right; padding: 4px 8px; background: rgba(0, 8, 40, .85); border: 2px solid #2a3f9a; pointer-events: none; }
+    #hud .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; line-height: 1.6; }
+    #hud small { color: #789; font-size: 8px; }
+    #hud b { color: #ff0; font-size: 8px; font-weight: 400; margin-left: auto; }
+    #hud .cr b { font-size: 16px; }
+    #hud b.dim, #hud .dim { color: #567; font-size: 8px; }
+    #hud b.ok { color: #7f7; }
+    #hud u { text-decoration: none; color: #9cf; }
+    #hud i { font-style: normal; font-size: 8px; }
+    #hud button { pointer-events: auto; width: 100%; margin-top: 4px; padding: 4px 0; background: #0a1450; color: #9cf; border: 2px solid #2a3f9a; cursor: pointer; font-size: 8px; }
+    #hud button:hover { background: #1a2a80; }
+    #hud.pulse { border-color: #ff0; box-shadow: 0 0 0 1px #ff0; }
+    #hud .cr b.deny { animation: deny .5s steps(1) 1; }
+    @keyframes deny { 0%, 40%, 80% { color: #f33; } 20%, 60%, 100% { color: #ff0; } }
+    /* selected-tower card (drawn at 2x) */
+    #card { position: absolute; right: 8px; bottom: 8px; width: 192px; transform: scale(2); transform-origin: bottom right; padding: 6px 8px; background: rgba(0, 8, 40, .9); border: 2px solid #ff0; pointer-events: none; }
+    #card.hover { border-color: #2a3f9a; }
+    #card[hidden] { display: none; }
+    #card .t { margin-bottom: 4px; } #card .t span { color: #ff0; margin-left: 6px; }
+    #card .r { display: flex; gap: 8px; line-height: 1.9; } #card .r b { width: 64px; color: #789; font-weight: 400; } #card .r i { color: #7f7; font-style: normal; }
+    #card .cost { color: #ff0; } #card .cost.no { color: #f55; }
+    #card .hint { margin-top: 4px; color: #567; line-height: 1.6; }
+    /* end-of-level overlay */
+    #overlay { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); text-align: center; padding: 20px 28px; background: rgba(0, 8, 40, .92); border: 2px solid #2a3f9a; }
+    #overlay[hidden] { display: none; }
+    #overlay h2 { margin: 0 0 12px; color: #ff0; font-size: 16px; font-weight: 400; }
+    #overlay p { margin: 8px 0; color: #9cf; line-height: 1.6; }
+    #overlay .b { display: flex; gap: 8px; justify-content: center; }
+    #overlay button { margin-top: 12px; background: #0a1450; color: #9cf; border: 2px solid #2a3f9a; padding: 8px 12px; cursor: pointer; font-size: 8px; }
+    #overlay button:hover { background: #1a2a80; }
+    #menuBtn { position: absolute; left: 8px; top: 8px; background: rgba(0, 8, 40, .85); color: #9cf; border: 2px solid #2a3f9a; padding: 6px 10px; cursor: pointer; font-size: 8px; }
+    #menuBtn:hover { background: #1a2a80; }
+    /* title + level select */
+    .screen { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 35%, #000a28 0%, #000 70%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #6a9fd8; overflow: hidden; }
+    .screen[hidden] { display: none; }
+    .screen button { color: #6a9fd8; background: #000a32; border: 2px solid #14246e; cursor: pointer; }
+    .screen button:hover:not(:disabled) { border-color: #6a9fd8; background: #04104a; }
+    #title { justify-content: center; gap: 16px; }
+    #title h1 { margin: 0; font-size: 32px; font-weight: 400; text-align: center; color: #6a9fd8; line-height: 1.5; }
+    #title h1 em { font-style: normal; display: block; font-size: 24px; }
+    #title .sub { margin: 0 0 8px; color: #45689a; font-size: 8px; }
+    #title .big { width: 280px; max-width: 80%; padding: 16px 0; font-size: 16px; }
+    #title .small { padding: 8px 16px; font-size: 8px; }
+    #title .credit { margin: 16px 0 0; color: #45689a; font-size: 8px; line-height: 1.8; text-align: center; padding: 0 12px; }
+    #title .icons { display: flex; gap: 24px; } #title .icons span { display: block; animation: spin 14s steps(56) infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #levels { justify-content: flex-start; }
+    #levels .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
+    #levels .bar h2 { margin: 0; font-size: 16px; font-weight: 400; flex: 1; text-align: center; }
+    #levels .bar button { padding: 8px 12px; font-size: 8px; }
+    #levels .kills { color: #45689a; font-size: 8px; text-align: right; min-width: 200px; line-height: 1.8; } #levels .kills b { color: #ff0; font-weight: 400; }
+    #levels .rows { width: min(800px, 94%); overflow-y: auto; flex: 1; padding-right: 8px; scrollbar-color: #14246e transparent; }
+    #levels .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    #levels .row.locked { opacity: .45; }
+    #levels .need { flex-basis: 100%; font-size: 8px; color: #45689a; margin-bottom: -4px; }
+    #levels .card { position: relative; flex: 1 1 210px; min-width: 200px; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
+    #levels .card:disabled { cursor: default; }
+    #levels .card canvas { width: 100%; height: auto; background: #02040c; image-rendering: pixelated; }
+    #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff0; font-size: 16px; text-shadow: 2px 2px 0 #000; }
+    #levels .card .st { position: absolute; right: 14px; top: 14px; width: 12px; height: 12px; background: #666; box-shadow: 0 0 0 2px #000; }
+    #levels .card.failed .st { background: #e03030; } #levels .card.partial .st { background: #ffcc00; } #levels .card.goal .st { background: #3f3; }
+    #levels .card .nm { font-size: 8px; padding: 0 2px; line-height: 1.6; }
+    #levels .card .meta { font-size: 8px; color: #45689a; padding: 0 2px 2px; line-height: 1.6; }
+    #achievements { justify-content: flex-start; }
+    #achievements .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
+    #achievements .bar h2 { margin: 0; font-size: 16px; font-weight: 400; flex: 1; text-align: center; }
+    #achievements .bar button { padding: 8px 12px; font-size: 8px; }
+    #achievements .kills { color: #45689a; text-align: right; min-width: 80px; } #achievements .kills b { color: #ff0; font-weight: 400; }
+    #achievements .list { width: min(800px, 94%); overflow-y: auto; flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; align-content: start; }
+    #achievements .ach { display: flex; gap: 10px; align-items: center; padding: 8px; border: 2px solid #14246e; background: #000a32; opacity: .5; }
+    #achievements .ach.got { opacity: 1; border-color: #6a9fd8; }
+    #achievements .ach .mark { flex: none; width: 16px; height: 16px; border: 2px solid #14246e; color: #3f3; display: grid; place-items: center; }
+    #achievements .ach b { display: block; font-weight: 400; color: #ff0; margin-bottom: 4px; }
+    #achievements .ach small { color: #6a9fd8; font-size: 8px; line-height: 1.6; display: block; }
+    #achievements .stats { flex: none; padding: 12px 0; color: #45689a; font-size: 8px; text-align: center; }
+    #toasts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast { padding: 10px 14px; background: rgba(0, 8, 40, .95); border: 2px solid #ff0; text-align: center; animation: toast 4.5s steps(1) forwards; }
+    .toast small { display: block; color: #ff0; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 16px; color: #fff; margin-bottom: 6px; } .toast span { color: #6a9fd8; }
+    @keyframes toast { 0% { opacity: 0; } 5% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+    #levels .foot { flex: none; display: flex; gap: 12px; padding: 8px 0 12px; }
+    #levels .foot button { padding: 6px 10px; font-size: 8px; color: #45689a; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="panel"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
