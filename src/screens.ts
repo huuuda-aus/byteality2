@@ -130,7 +130,7 @@ export function createLevelSelect(frame: HTMLElement, cb: LevelSelectCallbacks) 
     el.innerHTML = `<div class="bar"><button id="back">&lt; back</button><h2>Select level</h2>
       <div class="kills">${tab === 'original' ? `total kills <b>${total.toLocaleString('en-US')}</b>${next !== null ? ` | next row at <b>${next.toLocaleString('en-US')}</b>` : ' | all rows unlocked'}` : `<b>${lastCustom.length}</b> generated level${lastCustom.length === 1 ? '' : 's'}`}</div></div>
       <div class="tabs"><button id="tabOriginal" class="${tab === 'original' ? 'on' : ''}">Original levels</button><button id="tabGenerated" class="${tab === 'generated' ? 'on' : ''}">Generated levels (${lastCustom.length})</button>
-        ${tab === 'generated' ? `${import.meta.env.DEV ? '<a class="genlink" href="/gallery.html" target="_blank">open level generator</a>' : ''}<button id="import" class="imp">import .json</button><input type="file" id="file" accept=".json,application/json" hidden>` : ''}</div>
+        ${tab === 'generated' ? `<a class="genlink" href="${import.meta.env.BASE_URL}gallery.html" target="_blank">open level generator</a><button id="import" class="imp">import .json</button><input type="file" id="file" accept=".json,application/json" hidden>` : ''}</div>
       ${tab === 'generated' && note ? `<div class="note">${note}</div>` : ''}
       <div class="rows"></div>
       <div class="foot"><button id="achBtn">achievements</button>${tab === 'original' ? '<button id="reset">reset progress</button><button id="unlock">unlock all (debug)</button>' : ''}</div>`;
