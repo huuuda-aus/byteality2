@@ -14,6 +14,7 @@ import { WAVE_COLORS, WAVE_TYPE_NAMES, WaveRunner, buildWaves } from './waves.ts
 import { createTitle, createLevelSelect, createAchievements, createToaster } from './screens.ts';
 import { ROW_SIZE, unlockedRows } from './progress.ts';
 import { save } from './save.ts';
+import { sfx } from './audio.ts';
 import { checkAchievements, type Achievement } from './achievements.ts';
 import { createCard, createHud, createOverlay, createToolbar, createUi, type UiState } from './ui.ts';
 import { Buildings } from './buildings.ts';
@@ -82,9 +83,11 @@ function loadMap(name: string) {
   bullets = new BulletSystem(20000, (h) => {
     fx.hit(h.x, h.y, [sim.col[3 * h.enemy], sim.col[3 * h.enemy + 1], sim.col[3 * h.enemy + 2]], h.damage);
     numbers.add(sim.x[h.enemy], sim.y[h.enemy], h.dealt, Math.hypot(h.vx, h.vy), Math.atan2(h.vy, h.vx), h.rgb);
+    sfx.hit();
   }, (b) => { // bomb blast: sparks fly out as gun bullets
     for (let k = 0; k < b.sparks; k++) bullets.spawn(Kind.Gun, b.x, b.y, Math.random() * Math.PI * 2, 3 + Math.random() * 7, b.damage, 1, b.color);
     fragments.explodeModel([-2, 0, 2, 0], b.x, b.y, 0, 1, 1, 0.7, 0.3, 1.6, 1);
+    sfx.boom();
   }, (x, y, kind, dir) => { // fire / sonic leave a trail of faint puffs
     if (kind === Kind.Fireball) fragments.spawn(x, y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, Math.random() * 6.28, 0, 2 + Math.random() * 2, 0.55, 0.3, 0.12, 0.5 + Math.random() * 0.4);
     else fragments.spawn(x, y, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, dir + Math.PI / 2, 0, 3 + Math.random() * 2, 0.2, 0.55, 0.45, 0.5 + Math.random() * 0.4);
@@ -98,6 +101,7 @@ function loadMap(name: string) {
   waveRunner = new WaveRunner(waves, (w) => {
     const d = waves[w];
     sim.spawn(d.type, d.hp * map.hp_mult, d.speed * map.speed_mult, d.value * map.value_mult, WAVE_COLORS[d.type]);
+    sfx.appear();
   });
   kills = 0;
   money = map.money;
@@ -122,7 +126,7 @@ function loadMap(name: string) {
 /** Progress statistics only count in real play, not in sandbox. */
 const tracking = () => !state.freeBuild;
 function announce(list: Achievement[]) { for (const a of list) toaster.show(a.title, a.desc); }
-function earn(v: number) { money += v; if (tracking()) { save.data.stats.creditsEarned += v; save.dirty(); } }
+function earn(v: number) { money += v; sfx.money(); if (tracking()) { save.data.stats.creditsEarned += v; save.dirty(); } }
 
 /** Where flying money goes: the credits counter, converted from page pixels to field coordinates. */
 function moneyTarget(): { x: number; y: number } {
@@ -140,6 +144,7 @@ function killEnemy(i: number) {
   for (const mt of towers.moneyTowersNear(sim.x[i], sim.y[i])) if (!moneyNums.spawn(mt.x, mt.y, mt.value, dest)) earn(mt.value);
   sim.remove(i);
   kills++;
+  sfx.kill(type === 9);
   if (tracking()) {
     const k = ++save.data.stats.kills; save.dirty();
     if (k === 1 || k === 100 || k === 1000 || k === 10000) announce(checkAchievements());
@@ -166,6 +171,7 @@ function endLevel(result: 'over' | 'won') {
     hasNext = result === 'won' && i < campaign.length && i < rowsAfter * ROW_SIZE;
   } else lines.push('(sandbox: score not saved)');
   overlay.show(result === 'won' ? 'LEVEL COMPLETE' : 'BUILDING DESTROYED', lines, hasNext);
+  if (result === 'won') sfx.win(); else sfx.lose();
 }
 
 function spawnStress(n: number) {
@@ -198,6 +204,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     if (!state.freeBuild && ((quota[key] ?? 0) <= 0 || money < cost)) return;
     if (towers.place(key, pointer.x, pointer.y) && !state.freeBuild) {
       money -= cost; quota[key]--;
+      sfx.build(0);
       const d = save.data; d.stats.towersBuilt++; d.towersBuilt[key] = (d.towersBuilt[key] ?? 0) + 1; save.dirty();
       announce(checkAchievements());
       if (quota[key] <= 0) selectTower(null); // last one of its kind placed
@@ -225,9 +232,9 @@ function upgradeSelected() {
   if (!t) return;
   const cost = towers.upgradeCost(t);
   if (cost === null) return; // already at the maximum level
-  if (!state.freeBuild && money < cost) { hud.flashCredits(); return; } // not enough credits: the counter flashes red, nothing else happens
+  if (!state.freeBuild && money < cost) { hud.flashCredits(); sfx.denied(); return; } // not enough credits: the counter flashes red, nothing else happens
   if (towers.upgrade(t) && !state.freeBuild) {
-    money -= cost;
+    money -= cost; sfx.build(t.level);
     const d = save.data; d.stats.upgrades++; d.maxTowerLevel = Math.max(d.maxTowerLevel, t.level); save.dirty();
     announce(checkAchievements());
   }
@@ -251,6 +258,13 @@ const overlay = createOverlay(frameEl, {
 });
 const menuBtn = document.createElement('button'); menuBtn.id = 'menuBtn'; menuBtn.textContent = '< levels';
 menuBtn.onclick = () => { leaveLevel(); openLevels(); }; frameEl.append(menuBtn);
+sfx.enabled = save.data.settings.sound;
+const soundBtn = document.createElement('button'); soundBtn.id = 'soundBtn'; frameEl.append(soundBtn);
+const syncSound = () => { soundBtn.textContent = sfx.enabled ? 'sound: on' : 'sound: off'; };
+const toggleSound = () => { sfx.enabled = !sfx.enabled; syncSound(); if (sfx.enabled) sfx.click(); };
+soundBtn.onclick = toggleSound; syncSound();
+addEventListener('keydown', (e) => { if (e.code === 'KeyM') toggleSound(); });
+addEventListener('pointerdown', (e) => { if ((e.target as HTMLElement).closest?.('button')) sfx.click(); }, true); // every button ticks
 const panelEl = document.getElementById('panel')!;
 let panelOpen = params.has('debug'); // the MVP control panel is hidden; press ` (backquote) or add ?debug to open it
 const syncPanel = () => { panelEl.style.visibility = screen === 'game' && panelOpen ? '' : 'hidden'; };
@@ -278,7 +292,7 @@ function showScreen(s: Screen) {
   if (s === 'levels') levelScreen.show(save.best()); else levelScreen.hide();
   if (s === 'achievements') achScreen.show(); else achScreen.hide();
   syncPanel();
-  for (const e of [menuBtn, document.getElementById('toolbar'), document.getElementById('credits'), document.getElementById('hud'), document.getElementById('card')]) if (e) (e as HTMLElement).style.visibility = s === 'game' ? '' : 'hidden';
+  for (const e of [menuBtn, soundBtn, document.getElementById('toolbar'), document.getElementById('credits'), document.getElementById('hud'), document.getElementById('card')]) if (e) (e as HTMLElement).style.visibility = s === 'game' ? '' : 'hidden';
 }
 function openLevels() { showScreen('levels'); }
 function startLevel(name: string) { state.map = name; loadMap(name); ui.syncMap(); showScreen('game'); }
@@ -300,10 +314,10 @@ const ui = createUi(document.getElementById('panel')!, state, {
 });
 loadMap(state.map);
 showScreen(screen);
-if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__byteality = { fragments, models, get sim() { return sim; }, get waves() { return waveRunner; }, get towers() { return towers; }, get bullets() { return bullets; }, get buildings() { return buildings; }, pointer, scene, renderer, numbers, finish: () => { levelSteps = levelMap.steps; }, get phase() { return phase; }, get levelSteps() { return levelSteps; } };
+if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__byteality = { fragments, models, get sim() { return sim; }, get waves() { return waveRunner; }, get towers() { return towers; }, get bullets() { return bullets; }, get buildings() { return buildings; }, pointer, scene, renderer, numbers, sfx, finish: () => { levelSteps = levelMap.steps; }, get phase() { return phase; }, get levelSteps() { return levelSteps; } };
 
 // ---- main loop: fixed 60 Hz simulation, render every frame ----
-let acc = 0, last = performance.now(), spawnAcc = 0, fpsEma = 60;
+let acc = 0, last = performance.now(), spawnAcc = 0, fpsEma = 60, lastWave = 0;
 const t0 = last;
 function frame(now: number) {
   const dt = Math.min(0.25, (now - last) / 1000); last = now;
@@ -350,8 +364,11 @@ function frame(now: number) {
   }
   hpBars.end();
   if (tracking() && waveRunner.currentWave > save.data.maxWave) { save.data.maxWave = waveRunner.currentWave; save.dirty(); if (save.data.maxWave === 20 || save.data.maxWave === 100) announce(checkAchievements()); }
-  const st = save.data.settings; // persist the display settings when they change
-  if (st.hpMode !== state.hpMode || st.damageNumbers !== state.damageNumbers || st.allDamage !== state.allDamage) { st.hpMode = state.hpMode; st.damageNumbers = state.damageNumbers; st.allDamage = state.allDamage; save.dirty(); }
+  if (waveRunner.currentWave !== lastWave) { if (waveRunner.currentWave > 0) sfx.wave(); lastWave = waveRunner.currentWave; }
+  const st = save.data.settings; // persist the display and sound settings when they change
+  if (st.hpMode !== state.hpMode || st.damageNumbers !== state.damageNumbers || st.allDamage !== state.allDamage || st.sound !== sfx.enabled) {
+    st.hpMode = state.hpMode; st.damageNumbers = state.damageNumbers; st.allDamage = state.allDamage; st.sound = sfx.enabled; save.dirty();
+  }
   numbers.enabled = state.damageNumbers; numbers.all = state.allDamage; hpText.mode = state.hpMode;
   bullets.render(); fx.render(); buildings.render(); numbers.render(); moneyNums.render(); hpText.render(sim, pointer);
   const ghost = state.tool === 'tower' && state.towerKey && pointer.inside

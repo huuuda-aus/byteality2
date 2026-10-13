@@ -2,6 +2,7 @@ import { LineModelBatch, circleSegments, dottedCircleSegments } from './lineBatc
 import { distanceFromNetwork, type Graph } from './graph.ts';
 import { FIELD_H, FIELD_TOP, FIELD_W, MAX_LEVEL, PATH_WIDTH, models, towerFirerate, towerInfo, towerRange, type TowerInfo } from './data.ts';
 import { shoot, type CombatCtx } from './combat.ts';
+import { sfx } from './audio.ts';
 
 export interface PlacedTower {
   info: TowerInfo; key: string; x: number; y: number; level: number;
@@ -96,7 +97,7 @@ export class TowerLayer {
       t.steps++;
       if (t.key === 'tCursor') t.rich = (Math.atan2(ctx.pointer.y - t.y, ctx.pointer.x - t.x) * 180) / Math.PI; // the turret always follows the mouse
       t.lastBullet++;
-      if (t.lastBullet >= towerFirerate(t.info, t.level) && shoot(t, ctx)) t.lastBullet = 0;
+      if (t.lastBullet >= towerFirerate(t.info, t.level) && shoot(t, ctx)) { t.lastBullet = 0; sfx.shot(t.key, t.level); }
       t.rich -= IDLE_SPIN[t.key] ?? 0;
       const diff = ((t.rich - t.draw + 540) % 360) - 180;
       if (Math.abs(diff) < 10) t.draw = t.rich; else t.draw += diff > 0 ? 10 : -10;

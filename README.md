@@ -29,7 +29,7 @@ Note: edge indices in maps are **1-based** (GameMaker heritage); `buildGraph` co
 Models, stats and maps are derived from *ByteAlity Tower Defense* (Erik Leppen, 2008, freeware). Get the author's permission before publishing anything that reuses them, and replace the sounds/music/texture (not included) with your own.
 
 ## Next steps
-1. Sound/music, bloom pass.
+1. Music, bloom pass.
 2. Custom maps + editor (the original's tower tech levels only gate those), settings screen.
 3. HUD (LCD digits, panels), wave bars, build/upgrade UI.
 4. Audio, bloom pass, map editor.

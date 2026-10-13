@@ -4,7 +4,7 @@ const KEY = 'byteality.save';
 const OLD_KEY = 'byteality.best'; // v0: just the best kills per map
 
 export interface LevelStats { best: number; attempts: number; wins: number; goalReached: boolean }
-export interface Settings { hpMode: 'off' | 'near' | 'always'; damageNumbers: boolean; allDamage: boolean }
+export interface Settings { hpMode: 'off' | 'near' | 'always'; damageNumbers: boolean; allDamage: boolean; sound: boolean }
 export interface SaveData {
   v: 1;
   created: number;
@@ -21,7 +21,7 @@ const fresh = (): SaveData => ({
   v: 1, created: Date.now(), levels: {},
   stats: { kills: 0, towersBuilt: 0, upgrades: 0, wins: 0, losses: 0, creditsEarned: 0 },
   towersBuilt: {}, maxTowerLevel: 0, maxWave: 0, achievements: {},
-  settings: { hpMode: 'always', damageNumbers: true, allDamage: false },
+  settings: { hpMode: 'always', damageNumbers: true, allDamage: false, sound: true },
 });
 
 /** Fill anything missing so saves from older versions (or hand-edited ones) still load. */

@@ -6,6 +6,7 @@ import type { PlacedTower } from './towers.ts';
 import type { Buildings } from './buildings.ts';
 import type { FloatingNumbers } from './numbers.ts';
 import { towerInfo, towerRange } from './data.ts';
+import { sfx } from './audio.ts';
 
 export type Priority = 'nearest' | 'furthest' | 'healthiest' | 'unhealthiest' | 'random';
 export interface CombatCtx {
@@ -293,7 +294,7 @@ export function shoot(t: PlacedTower, c: CombatCtx): boolean {
       t.rich = d / RAD; return true;
     }
     case 'tHeal': {
-      c.buildings.heal(t.x, t.y, range, dmg);
+      if (c.buildings.heal(t.x, t.y, range, dmg)) sfx.heal();
       return true;
     }
     case 'tLaser': {

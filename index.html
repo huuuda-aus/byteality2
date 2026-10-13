@@ -60,6 +60,8 @@
     #overlay button { margin-top: 12px; background: #0a1450; color: #9cf; border: 2px solid #2a3f9a; padding: 8px 12px; cursor: pointer; font-size: 8px; }
     #overlay button:hover { background: #1a2a80; }
     #menuBtn { position: absolute; left: 8px; top: 8px; background: rgba(0, 8, 40, .85); color: #9cf; border: 2px solid #2a3f9a; padding: 6px 10px; cursor: pointer; font-size: 8px; }
+    #soundBtn { position: absolute; left: 8px; top: 40px; background: rgba(0, 8, 40, .85); color: #9cf; border: 2px solid #2a3f9a; padding: 6px 10px; cursor: pointer; font-size: 8px; }
+    #soundBtn:hover { background: #1a2a80; }
     #menuBtn:hover { background: #1a2a80; }
     /* title + level select */
     .screen { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 35%, #000a28 0%, #000 70%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #6a9fd8; overflow: hidden; }
@@ -73,7 +75,7 @@
     #title .big { width: 280px; max-width: 80%; padding: 16px 0; font-size: 16px; }
     #title .small { padding: 8px 16px; font-size: 8px; }
     #title .credit { margin: 16px 0 0; color: #45689a; font-size: 8px; line-height: 1.8; text-align: center; padding: 0 12px; }
-    #title .icons { display: flex; gap: 24px; } #title .icons span { display: block; animation: spin 14s steps(56) infinite; }
+    #title .icons { display: flex; gap: 24px; } #title .icons span { display: block; animation: spin 14s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #levels { justify-content: flex-start; }
     #levels .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
