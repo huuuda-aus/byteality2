@@ -64,81 +64,89 @@
     #soundBtn:hover { background: #1a2a80; }
     #menuBtn:hover { background: #1a2a80; }
     /* title + level select */
-    .screen { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, #3b3a73 0%, #1d1f45 55%, #0f1230 100%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #c4cbff; overflow: hidden; }
+    .screen { position: absolute; inset: 0; background: linear-gradient(rgba(46, 230, 255, .05) 1px, transparent 1px) 0 0 / 24px 24px, linear-gradient(90deg, rgba(46, 230, 255, .05) 1px, transparent 1px) 0 0 / 24px 24px, radial-gradient(ellipse at 50% 0%, #0d2f42 0%, #07161f 55%, #02080d 100%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #bfeaf5; overflow: hidden; }
     .screen[hidden] { display: none; }
-    .screen button { color: #c4cbff; background: #1b1e4f; border: 2px solid #3d4290; cursor: pointer; }
-    .screen button:hover:not(:disabled) { border-color: #c4cbff; background: #2a2f78; }
+    .screen button { color: #bfeaf5; background: #0b1620; border: 2px solid #1d4a5c; cursor: pointer; }
+    .screen button:hover:not(:disabled) { border-color: #bfeaf5; background: #123044; }
     #title { justify-content: center; gap: 16px; }
-    #title h1 { margin: 0; font-size: 64px; font-weight: 400; text-align: center; color: #c4cbff; line-height: 1.5; }
+    #title h1 { margin: 0; font-size: 64px; font-weight: 400; text-align: center; color: #bfeaf5; line-height: 1.5; }
     #title h1 em { font-style: normal; display: block; font-size: 34px; }
-    #title .sub { margin: 0 0 8px; color: #8c93d0; font-size: 13px; }
+    #title .sub { margin: 0 0 8px; color: #5f9db3; font-size: 13px; }
     #title .big { width: 280px; max-width: 80%; padding: 16px 0; font-size: 22px; }
     #title .small { padding: 8px 16px; font-size: 13px; }
-    #title .credit { margin: 16px 0 0; color: #8c93d0; font-size: 13px; line-height: 1.8; text-align: center; padding: 0 12px; }
+    #title .credit { margin: 16px 0 0; color: #5f9db3; font-size: 13px; line-height: 1.8; text-align: center; padding: 0 12px; }
     #title .icons { display: flex; gap: 24px; } #title .icons span { display: block; animation: spin 14s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #levels { justify-content: flex-start; }
     #levels .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
     #levels .bar h2 { margin: 0; font-size: 22px; font-weight: 400; flex: 1; text-align: center; }
     #levels .bar button { padding: 8px 12px; font-size: 13px; }
-    #levels .kills { color: #8c93d0; font-size: 13px; text-align: right; min-width: 200px; line-height: 1.8; } #levels .kills b { color: #ff0; font-weight: 400; }
-    #levels .rows { width: min(800px, 94%); overflow-y: auto; flex: 1; padding-right: 8px; scrollbar-color: #3d4290 transparent; }
+    #levels .kills { color: #5f9db3; font-size: 13px; text-align: right; min-width: 200px; line-height: 1.8; } #levels .kills b { color: #ff8a2e; font-weight: 400; }
+    #levels .rows { width: min(800px, 94%); overflow-y: auto; flex: 1; padding-right: 8px; scrollbar-color: #1d4a5c transparent; }
     #levels .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     #levels .row.locked { opacity: .45; }
-    #levels .need { flex-basis: 100%; font-size: 13px; color: #8c93d0; margin-bottom: -4px; }
+    #levels .need { flex-basis: 100%; font-size: 13px; color: #5f9db3; margin-bottom: -4px; }
     #levels .card { position: relative; flex: 1 1 210px; min-width: 200px; max-width: calc(33.34% - 8px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
     #levels .card:disabled { cursor: default; }
-    #levels .card canvas { width: 100%; height: auto; background: #0f1230; image-rendering: pixelated; }
-    #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff0; font-size: 22px; text-shadow: 2px 2px 0 #000; }
+    #levels .card canvas { width: 100%; height: auto; background: #02080d; image-rendering: pixelated; }
+    #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff8a2e; font-size: 22px; text-shadow: 2px 2px 0 #000; }
     #levels .card .st { position: absolute; right: 14px; top: 14px; width: 12px; height: 12px; background: #666; box-shadow: 0 0 0 2px #000; }
     #levels .card.failed .st { background: #e03030; } #levels .card.partial .st { background: #ffcc00; } #levels .card.goal .st { background: #3f3; }
     #levels .card .nm { font-size: 13px; padding: 0 2px; line-height: 1.6; }
-    #levels .card .meta { font-size: 13px; color: #8c93d0; padding: 0 2px 2px; line-height: 1.6; }
+    #levels .card .meta { font-size: 13px; color: #5f9db3; padding: 0 2px 2px; line-height: 1.6; }
     #achievements { justify-content: flex-start; }
     #achievements .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
     #achievements .bar h2 { margin: 0; font-size: 22px; font-weight: 400; flex: 1; text-align: center; }
     #achievements .bar button { padding: 8px 12px; font-size: 13px; }
-    #achievements .kills { color: #8c93d0; text-align: right; min-width: 80px; } #achievements .kills b { color: #ff0; font-weight: 400; }
+    #achievements .kills { color: #5f9db3; text-align: right; min-width: 80px; } #achievements .kills b { color: #ff8a2e; font-weight: 400; }
     #achievements .list { width: min(800px, 94%); overflow-y: auto; flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; align-content: start; }
-    #achievements .ach { display: flex; gap: 10px; align-items: center; padding: 8px; border: 2px solid #3d4290; background: #1b1e4f; opacity: .5; }
-    #achievements .ach.got { opacity: 1; border-color: #c4cbff; }
-    #achievements .ach .mark { flex: none; width: 16px; height: 16px; border: 2px solid #3d4290; color: #3f3; display: grid; place-items: center; }
-    #achievements .ach b { display: block; font-weight: 400; color: #ff0; margin-bottom: 4px; }
-    #achievements .ach small { color: #c4cbff; font-size: 13px; line-height: 1.6; display: block; }
-    #achievements .stats { flex: none; padding: 12px 0; color: #8c93d0; font-size: 13px; text-align: center; }
+    #achievements .ach { display: flex; gap: 10px; align-items: center; padding: 8px; border: 2px solid #1d4a5c; background: #0b1620; opacity: .5; }
+    #achievements .ach.got { opacity: 1; border-color: #bfeaf5; }
+    #achievements .ach .mark { flex: none; width: 16px; height: 16px; border: 2px solid #1d4a5c; color: #3f3; display: grid; place-items: center; }
+    #achievements .ach b { display: block; font-weight: 400; color: #ff8a2e; margin-bottom: 4px; }
+    #achievements .ach small { color: #bfeaf5; font-size: 13px; line-height: 1.6; display: block; }
+    #achievements .stats { flex: none; padding: 12px 0; color: #5f9db3; font-size: 13px; text-align: center; }
     #toasts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-    .toast { padding: 10px 14px; background: rgba(0, 8, 40, .95); border: 2px solid #ff0; text-align: center; animation: toast 4.5s steps(1) forwards; }
-    .toast small { display: block; color: #ff0; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 22px; color: #fff; margin-bottom: 6px; } .toast span { color: #c4cbff; }
+    .toast { padding: 10px 14px; background: rgba(0, 8, 40, .95); border: 2px solid #ff8a2e; text-align: center; animation: toast 4.5s steps(1) forwards; }
+    .toast small { display: block; color: #ff8a2e; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 22px; color: #fff; margin-bottom: 6px; } .toast span { color: #bfeaf5; }
     @keyframes toast { 0% { opacity: 0; } 5% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
     #levels .tabs { width: min(800px, 94%); display: flex; gap: 8px; margin-bottom: 12px; flex: none; flex-wrap: wrap; }
-    #levels .tabs button { padding: 8px 12px; font-size: 13px; color: #8c93d0; }
-    #levels .tabs button.on { color: #ff0; border-color: #c4cbff; }
-    #levels .tabs .genlink { margin-left: auto; padding: 8px 12px; font-size: 13px; color: #c4cbff; background: #1b1e4f; border: 2px solid #3d4290; text-decoration: none; line-height: 1.6; } #levels .tabs .genlink:hover { border-color: #c4cbff; }
+    #levels .tabs button { padding: 8px 12px; font-size: 13px; color: #5f9db3; }
+    #levels .tabs button.on { color: #ff8a2e; border-color: #bfeaf5; }
+    #levels .tabs .genlink { margin-left: auto; padding: 8px 12px; font-size: 13px; color: #bfeaf5; background: #0b1620; border: 2px solid #1d4a5c; text-decoration: none; line-height: 1.6; } #levels .tabs .genlink:hover { border-color: #bfeaf5; }
     #levels .tabs .genlink + .imp { margin-left: 0; }
     #levels .tabs .imp { margin-left: auto; }
-    #levels .note { width: min(800px, 94%); color: #ff0; font-size: 13px; margin-bottom: 10px; flex: none; }
-    #levels .empty { color: #8c93d0; line-height: 1.8; text-align: center; padding: 40px 12px; font-size: 13px; } #levels .empty b { color: #c4cbff; font-weight: 400; }
-    #levels .card .rm { position: absolute; right: 36px; top: 12px; color: #f55; font-size: 14px; padding: 0 4px; border: 2px solid #3d4290; background: #1b1e4f; cursor: pointer; } #levels .card .rm:hover { border-color: #f55; }
+    #levels .note { width: min(800px, 94%); color: #ff8a2e; font-size: 13px; margin-bottom: 10px; flex: none; }
+    #levels .empty { color: #5f9db3; line-height: 1.8; text-align: center; padding: 40px 12px; font-size: 13px; } #levels .empty b { color: #bfeaf5; font-weight: 400; }
+    #levels .card .rm { position: absolute; right: 36px; top: 12px; color: #f55; font-size: 14px; padding: 0 4px; border: 2px solid #1d4a5c; background: #0b1620; cursor: pointer; } #levels .card .rm:hover { border-color: #f55; }
     #levels .foot { flex: none; display: flex; gap: 12px; padding: 8px 0 12px; }
-    #levels .foot button { padding: 6px 10px; font-size: 13px; color: #8c93d0; }
+    #levels .foot button { padding: 6px 10px; font-size: 13px; color: #5f9db3; }
     .screen { font-family: 'Fredoka', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: auto; }
     .screen canvas { position: static; cursor: inherit; }
-    .screen button, .screen .genlink { font-family: inherit; border-radius: 10px; transition: background .12s, border-color .12s, transform .12s; }
-    .screen button:hover:not(:disabled) { transform: translateY(-1px); }
-    #title h1 { text-shadow: 0 4px 0 #0f1230, 0 0 32px rgba(140, 150, 255, .35); font-weight: 600; letter-spacing: 1px; }
-    #title h1 em { font-weight: 400; letter-spacing: 6px; text-transform: uppercase; color: #8c93d0; margin-top: 4px; }
+    .screen button, .screen .genlink { font-family: inherit; transition: background .12s, border-color .12s, box-shadow .12s; }
+    #title h1 { text-shadow: 0 0 24px rgba(46, 230, 255, .45); font-weight: 600; letter-spacing: 1px; }
+    #title h1 em { font-weight: 400; letter-spacing: 6px; text-transform: uppercase; color: #5f9db3; margin-top: 4px; }
     #title .sub { text-transform: uppercase; letter-spacing: 4px; margin: 0 0 16px; }
-    #title .big { font-weight: 600; background: #ffd34d; color: #2a1f00; border-color: #ffd34d; box-shadow: 0 4px 0 #b88a00; }
-    #title .big:hover:not(:disabled) { background: #ffe07a; border-color: #ffe07a; }
+    #title .big { font-weight: 600; background: #2ee6ff; color: #021014; border-color: #2ee6ff; box-shadow: 0 0 18px rgba(46, 230, 255, .45); }
+    #title .big:hover:not(:disabled) { background: #7af0ff; border-color: #7af0ff; }
     #title .credit { margin-top: 24px; }
     #title .icons { min-height: 48px; align-items: center; }
-    #levels .card, #achievements .ach { border-radius: 12px; }
-    #levels .card canvas { border-radius: 6px; }
-    #levels .card .st { border-radius: 50%; }
-    #levels .card .nm { font-weight: 600; color: #fff; font-size: 15px; }
+        #levels .card .nm { font-weight: 600; color: #fff; font-size: 15px; }
     #levels .need { text-transform: uppercase; letter-spacing: 1px; }
     #levels .bar h2, #achievements .bar h2 { font-weight: 600; color: #fff; }
-    #levels .tabs button.on { background: #2a2f78; }
+    #levels .tabs button.on { background: #123044; }
+      /* circuit-board look: square, neon-edged panels */
+    .screen button, .screen .genlink, #levels .card, #achievements .ach, #levels .card canvas, .toast { border-radius: 0; }
+    .screen button:hover:not(:disabled), #levels .tabs .genlink:hover { box-shadow: 0 0 12px rgba(46, 230, 255, .35); }
+    #levels .card, #achievements .ach { background: rgba(11, 22, 32, .85); }
+    #levels .card:hover:not(:disabled) { box-shadow: 0 0 14px rgba(46, 230, 255, .35); }
+    #levels .card canvas { background: #04090e; border: 1px solid #12303e; }
+    #levels .card.failed .st, #levels .card.partial .st, #levels .card.goal .st { box-shadow: 0 0 6px currentColor, 0 0 0 2px #02080d; }
+    #levels .card.failed .st { color: #e03030; } #levels .card.partial .st { color: #ff8a2e; } #levels .card.goal .st { color: #3f3; }
+    #levels .card.partial .st { background: #ff8a2e; }
+    #levels .bar h2, #achievements .bar h2 { text-shadow: 0 0 14px rgba(46, 230, 255, .4); }
+    #levels .tabs button.on { background: #123044; border-color: #2ee6ff; box-shadow: 0 0 10px rgba(46, 230, 255, .3); }
+    #levels .row.locked .card canvas { filter: saturate(.4); }
   </style>
 </head>
 <body>

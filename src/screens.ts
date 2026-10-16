@@ -28,16 +28,16 @@ export function drawMapPreview(cv: HTMLCanvasElement, map: MapData): void {
   ctx.clearRect(0, 0, W, H);
   const s = Math.min(W / 640, H / 340), ox = (W - 640 * s) / 2, oy = (H - 340 * s) / 2 - 70 * s;
   const X = (x: number) => ox + x * s, Y = (y: number) => oy + y * s;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#8c97ab'; ctx.lineWidth = Math.max(2, 8 * s);
+  ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.strokeStyle = '#2ee6ff'; ctx.lineWidth = Math.max(2, 8 * s);
   ctx.beginPath();
   for (const [b, e] of map.edges) { const A = map.nodes[b - 1], B = map.nodes[e - 1]; ctx.moveTo(X(A[0]), Y(A[1])); ctx.lineTo(X(B[0]), Y(B[1])); }
   ctx.stroke();
-  ctx.strokeStyle = '#0b0f1c'; ctx.lineWidth = Math.max(1, 4 * s); ctx.stroke(); // hollow tube look
+  ctx.strokeStyle = '#04090e'; ctx.lineWidth = Math.max(1, 6 * s); ctx.stroke(); // neon-edged trench
   for (const [x, y, v] of map.nodes) {
     if (v !== 0 && v !== 100) continue;
-    ctx.fillStyle = v === 0 ? '#3366ff' : '#ff2020'; ctx.beginPath(); ctx.arc(X(x), Y(y), Math.max(2.5, 6 * s), 0, 7); ctx.fill();
+    ctx.fillStyle = v === 0 ? '#2ee6ff' : '#ff8a2e'; const r = Math.max(2.5, 6 * s); ctx.fillRect(X(x) - r, Y(y) - r, r * 2, r * 2);
   }
-  ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.2;
+  ctx.strokeStyle = '#3a7bff'; ctx.lineWidth = 1.2;
   for (const [x, y] of map.buildings) { const h = Math.max(3, 26 * s); ctx.strokeRect(X(x) - h, Y(y) - h, h * 2, h * 2); }
 }
 
