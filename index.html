@@ -7,8 +7,8 @@
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: #9cf; font: 8px/1.6 'Press Start 2P', monospace; -webkit-font-smoothing: none; font-smooth: never; text-rendering: optimizeSpeed; }
     button, select, input { font: inherit; }
-    #stage { position: absolute; inset: 0; display: grid; place-items: center; }
-    canvas { display: block; cursor: crosshair; }
+    #stage { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, #3b3a73 0%, #1d1f45 55%, #0f1230 100%); }
+    canvas { display: block; cursor: crosshair; position: absolute; inset: 0; }
     /* debug panel (hidden by default) */
     #panel { position: absolute; bottom: 8px; right: 8px; width: 340px; padding: 8px 10px; background: rgba(0, 8, 40, .88); border: 2px solid #2a3f9a; }
     #panel h1 { margin: 0 0 8px; font-size: 8px; color: #ff0; font-weight: 400; }
@@ -18,16 +18,16 @@
     #panel button:hover { background: #1a2a80; }
     #stats { white-space: pre; color: #ff0; margin-top: 8px; }
     #help { color: #789; margin-top: 8px; line-height: 1.8; }
-    #frame { position: relative; }
+    #frame { position: absolute; inset: 0; }
     /* tower toolbar */
-    #toolbar { --tb: 36px; position: absolute; top: 0; left: 8px; right: 372px; height: 15.625%; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 4px; padding: 4px; box-sizing: border-box; pointer-events: none; }
+    #toolbar { --tb: 72px; position: absolute; top: 0; left: 8px; right: 372px; min-height: 104px; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 4px; padding: 4px; box-sizing: border-box; pointer-events: none; }
     #toolbar button { pointer-events: auto; position: relative; width: var(--tb); height: var(--tb); padding: 0; background: rgba(8, 14, 60, .75); border: 2px solid #2a3f9a; cursor: pointer; }
     #toolbar button[hidden] { display: none; }
     #toolbar button.dim canvas { opacity: .35; }
     #toolbar button:hover { border-color: #8af; }
     #toolbar button.sel { border-color: #ff0; box-shadow: 0 0 0 1px #ff0; }
     #toolbar canvas { width: 100%; height: 100%; display: block; }
-    #toolbar .n { position: absolute; right: 2px; bottom: 1px; font-size: 8px; line-height: 1; color: #ff0; pointer-events: none; text-shadow: 1px 1px 0 #000; }
+    #toolbar .n { position: absolute; right: 4px; bottom: 2px; font-size: 14px; line-height: 1; color: #ff0; pointer-events: none; text-shadow: 1px 1px 0 #000; }
     /* top-right HUD (drawn at 2x) */
     #hud { position: absolute; right: 8px; top: 8px; width: 176px; transform-origin: top right; padding: 4px 8px; background: rgba(0, 8, 40, .85); border: 2px solid #2a3f9a; pointer-events: none; }
     #hud .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; line-height: 1.6; }
@@ -64,63 +64,81 @@
     #soundBtn:hover { background: #1a2a80; }
     #menuBtn:hover { background: #1a2a80; }
     /* title + level select */
-    .screen { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 35%, #000a28 0%, #000 70%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #6a9fd8; overflow: hidden; }
+    .screen { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, #3b3a73 0%, #1d1f45 55%, #0f1230 100%); display: flex; flex-direction: column; align-items: center; z-index: 20; color: #c4cbff; overflow: hidden; }
     .screen[hidden] { display: none; }
-    .screen button { color: #6a9fd8; background: #000a32; border: 2px solid #14246e; cursor: pointer; }
-    .screen button:hover:not(:disabled) { border-color: #6a9fd8; background: #04104a; }
+    .screen button { color: #c4cbff; background: #1b1e4f; border: 2px solid #3d4290; cursor: pointer; }
+    .screen button:hover:not(:disabled) { border-color: #c4cbff; background: #2a2f78; }
     #title { justify-content: center; gap: 16px; }
-    #title h1 { margin: 0; font-size: 32px; font-weight: 400; text-align: center; color: #6a9fd8; line-height: 1.5; }
-    #title h1 em { font-style: normal; display: block; font-size: 24px; }
-    #title .sub { margin: 0 0 8px; color: #45689a; font-size: 8px; }
-    #title .big { width: 280px; max-width: 80%; padding: 16px 0; font-size: 16px; }
-    #title .small { padding: 8px 16px; font-size: 8px; }
-    #title .credit { margin: 16px 0 0; color: #45689a; font-size: 8px; line-height: 1.8; text-align: center; padding: 0 12px; }
+    #title h1 { margin: 0; font-size: 64px; font-weight: 400; text-align: center; color: #c4cbff; line-height: 1.5; }
+    #title h1 em { font-style: normal; display: block; font-size: 34px; }
+    #title .sub { margin: 0 0 8px; color: #8c93d0; font-size: 13px; }
+    #title .big { width: 280px; max-width: 80%; padding: 16px 0; font-size: 22px; }
+    #title .small { padding: 8px 16px; font-size: 13px; }
+    #title .credit { margin: 16px 0 0; color: #8c93d0; font-size: 13px; line-height: 1.8; text-align: center; padding: 0 12px; }
     #title .icons { display: flex; gap: 24px; } #title .icons span { display: block; animation: spin 14s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #levels { justify-content: flex-start; }
     #levels .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
-    #levels .bar h2 { margin: 0; font-size: 16px; font-weight: 400; flex: 1; text-align: center; }
-    #levels .bar button { padding: 8px 12px; font-size: 8px; }
-    #levels .kills { color: #45689a; font-size: 8px; text-align: right; min-width: 200px; line-height: 1.8; } #levels .kills b { color: #ff0; font-weight: 400; }
-    #levels .rows { width: min(800px, 94%); overflow-y: auto; flex: 1; padding-right: 8px; scrollbar-color: #14246e transparent; }
+    #levels .bar h2 { margin: 0; font-size: 22px; font-weight: 400; flex: 1; text-align: center; }
+    #levels .bar button { padding: 8px 12px; font-size: 13px; }
+    #levels .kills { color: #8c93d0; font-size: 13px; text-align: right; min-width: 200px; line-height: 1.8; } #levels .kills b { color: #ff0; font-weight: 400; }
+    #levels .rows { width: min(800px, 94%); overflow-y: auto; flex: 1; padding-right: 8px; scrollbar-color: #3d4290 transparent; }
     #levels .row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     #levels .row.locked { opacity: .45; }
-    #levels .need { flex-basis: 100%; font-size: 8px; color: #45689a; margin-bottom: -4px; }
+    #levels .need { flex-basis: 100%; font-size: 13px; color: #8c93d0; margin-bottom: -4px; }
     #levels .card { position: relative; flex: 1 1 210px; min-width: 200px; max-width: calc(33.34% - 8px); display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px; text-align: left; }
     #levels .card:disabled { cursor: default; }
-    #levels .card canvas { width: 100%; height: auto; background: #02040c; image-rendering: pixelated; }
-    #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff0; font-size: 16px; text-shadow: 2px 2px 0 #000; }
+    #levels .card canvas { width: 100%; height: auto; background: #0f1230; image-rendering: pixelated; }
+    #levels .card .no { position: absolute; left: 14px; top: 12px; color: #ff0; font-size: 22px; text-shadow: 2px 2px 0 #000; }
     #levels .card .st { position: absolute; right: 14px; top: 14px; width: 12px; height: 12px; background: #666; box-shadow: 0 0 0 2px #000; }
     #levels .card.failed .st { background: #e03030; } #levels .card.partial .st { background: #ffcc00; } #levels .card.goal .st { background: #3f3; }
-    #levels .card .nm { font-size: 8px; padding: 0 2px; line-height: 1.6; }
-    #levels .card .meta { font-size: 8px; color: #45689a; padding: 0 2px 2px; line-height: 1.6; }
+    #levels .card .nm { font-size: 13px; padding: 0 2px; line-height: 1.6; }
+    #levels .card .meta { font-size: 13px; color: #8c93d0; padding: 0 2px 2px; line-height: 1.6; }
     #achievements { justify-content: flex-start; }
     #achievements .bar { width: min(800px, 94%); display: flex; align-items: center; gap: 16px; padding: 16px 0 12px; flex: none; }
-    #achievements .bar h2 { margin: 0; font-size: 16px; font-weight: 400; flex: 1; text-align: center; }
-    #achievements .bar button { padding: 8px 12px; font-size: 8px; }
-    #achievements .kills { color: #45689a; text-align: right; min-width: 80px; } #achievements .kills b { color: #ff0; font-weight: 400; }
+    #achievements .bar h2 { margin: 0; font-size: 22px; font-weight: 400; flex: 1; text-align: center; }
+    #achievements .bar button { padding: 8px 12px; font-size: 13px; }
+    #achievements .kills { color: #8c93d0; text-align: right; min-width: 80px; } #achievements .kills b { color: #ff0; font-weight: 400; }
     #achievements .list { width: min(800px, 94%); overflow-y: auto; flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; align-content: start; }
-    #achievements .ach { display: flex; gap: 10px; align-items: center; padding: 8px; border: 2px solid #14246e; background: #000a32; opacity: .5; }
-    #achievements .ach.got { opacity: 1; border-color: #6a9fd8; }
-    #achievements .ach .mark { flex: none; width: 16px; height: 16px; border: 2px solid #14246e; color: #3f3; display: grid; place-items: center; }
+    #achievements .ach { display: flex; gap: 10px; align-items: center; padding: 8px; border: 2px solid #3d4290; background: #1b1e4f; opacity: .5; }
+    #achievements .ach.got { opacity: 1; border-color: #c4cbff; }
+    #achievements .ach .mark { flex: none; width: 16px; height: 16px; border: 2px solid #3d4290; color: #3f3; display: grid; place-items: center; }
     #achievements .ach b { display: block; font-weight: 400; color: #ff0; margin-bottom: 4px; }
-    #achievements .ach small { color: #6a9fd8; font-size: 8px; line-height: 1.6; display: block; }
-    #achievements .stats { flex: none; padding: 12px 0; color: #45689a; font-size: 8px; text-align: center; }
+    #achievements .ach small { color: #c4cbff; font-size: 13px; line-height: 1.6; display: block; }
+    #achievements .stats { flex: none; padding: 12px 0; color: #8c93d0; font-size: 13px; text-align: center; }
     #toasts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .toast { padding: 10px 14px; background: rgba(0, 8, 40, .95); border: 2px solid #ff0; text-align: center; animation: toast 4.5s steps(1) forwards; }
-    .toast small { display: block; color: #ff0; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 16px; color: #fff; margin-bottom: 6px; } .toast span { color: #6a9fd8; }
+    .toast small { display: block; color: #ff0; margin-bottom: 6px; } .toast b { display: block; font-weight: 400; font-size: 22px; color: #fff; margin-bottom: 6px; } .toast span { color: #c4cbff; }
     @keyframes toast { 0% { opacity: 0; } 5% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
     #levels .tabs { width: min(800px, 94%); display: flex; gap: 8px; margin-bottom: 12px; flex: none; flex-wrap: wrap; }
-    #levels .tabs button { padding: 8px 12px; font-size: 8px; color: #45689a; }
-    #levels .tabs button.on { color: #ff0; border-color: #6a9fd8; }
-    #levels .tabs .genlink { margin-left: auto; padding: 8px 12px; font-size: 8px; color: #6a9fd8; background: #000a32; border: 2px solid #14246e; text-decoration: none; line-height: 1.6; } #levels .tabs .genlink:hover { border-color: #6a9fd8; }
+    #levels .tabs button { padding: 8px 12px; font-size: 13px; color: #8c93d0; }
+    #levels .tabs button.on { color: #ff0; border-color: #c4cbff; }
+    #levels .tabs .genlink { margin-left: auto; padding: 8px 12px; font-size: 13px; color: #c4cbff; background: #1b1e4f; border: 2px solid #3d4290; text-decoration: none; line-height: 1.6; } #levels .tabs .genlink:hover { border-color: #c4cbff; }
     #levels .tabs .genlink + .imp { margin-left: 0; }
     #levels .tabs .imp { margin-left: auto; }
-    #levels .note { width: min(800px, 94%); color: #ff0; font-size: 8px; margin-bottom: 10px; flex: none; }
-    #levels .empty { color: #45689a; line-height: 1.8; text-align: center; padding: 40px 12px; font-size: 8px; } #levels .empty b { color: #6a9fd8; font-weight: 400; }
-    #levels .card .rm { position: absolute; right: 36px; top: 12px; color: #f55; font-size: 10px; padding: 0 4px; border: 2px solid #14246e; background: #000a32; cursor: pointer; } #levels .card .rm:hover { border-color: #f55; }
+    #levels .note { width: min(800px, 94%); color: #ff0; font-size: 13px; margin-bottom: 10px; flex: none; }
+    #levels .empty { color: #8c93d0; line-height: 1.8; text-align: center; padding: 40px 12px; font-size: 13px; } #levels .empty b { color: #c4cbff; font-weight: 400; }
+    #levels .card .rm { position: absolute; right: 36px; top: 12px; color: #f55; font-size: 14px; padding: 0 4px; border: 2px solid #3d4290; background: #1b1e4f; cursor: pointer; } #levels .card .rm:hover { border-color: #f55; }
     #levels .foot { flex: none; display: flex; gap: 12px; padding: 8px 0 12px; }
-    #levels .foot button { padding: 6px 10px; font-size: 8px; color: #45689a; }
+    #levels .foot button { padding: 6px 10px; font-size: 13px; color: #8c93d0; }
+    .screen { font-family: 'Fredoka', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: auto; }
+    .screen canvas { position: static; cursor: inherit; }
+    .screen button, .screen .genlink { font-family: inherit; border-radius: 10px; transition: background .12s, border-color .12s, transform .12s; }
+    .screen button:hover:not(:disabled) { transform: translateY(-1px); }
+    #title h1 { text-shadow: 0 4px 0 #0f1230, 0 0 32px rgba(140, 150, 255, .35); font-weight: 600; letter-spacing: 1px; }
+    #title h1 em { font-weight: 400; letter-spacing: 6px; text-transform: uppercase; color: #8c93d0; margin-top: 4px; }
+    #title .sub { text-transform: uppercase; letter-spacing: 4px; margin: 0 0 16px; }
+    #title .big { font-weight: 600; background: #ffd34d; color: #2a1f00; border-color: #ffd34d; box-shadow: 0 4px 0 #b88a00; }
+    #title .big:hover:not(:disabled) { background: #ffe07a; border-color: #ffe07a; }
+    #title .credit { margin-top: 24px; }
+    #title .icons { min-height: 48px; align-items: center; }
+    #levels .card, #achievements .ach { border-radius: 12px; }
+    #levels .card canvas { border-radius: 6px; }
+    #levels .card .st { border-radius: 50%; }
+    #levels .card .nm { font-weight: 600; color: #fff; font-size: 15px; }
+    #levels .need { text-transform: uppercase; letter-spacing: 1px; }
+    #levels .bar h2, #achievements .bar h2 { font-weight: 600; color: #fff; }
+    #levels .tabs button.on { background: #2a2f78; }
   </style>
 </head>
 <body>

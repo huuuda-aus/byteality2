@@ -3,9 +3,9 @@ import towersJson from '../assets/towers.json' with { type: 'json' };
 import mapsJson from '../assets/maps.json' with { type: 'json' };
 
 export const FIELD_W = 640;
-export const FIELD_H = 480;
+export const FIELD_H = 410; // bottom of the playable area (the 3D terrain ends here, with a margin of scenery around it)
 /** Playfield in original coordinates: y runs 75..405 between the HUD bars. */
-export const FIELD_TOP = 75;
+export const FIELD_TOP = 70;
 
 export type Segments = number[]; // flat [x1,y1,x2,y2,...]
 

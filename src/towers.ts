@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { buildTowerModel, TINT_RED, type TowerModel } from './towerModels.ts';
 import { LineModelBatch, circleSegments, dottedCircleSegments } from './lineBatch.ts';
 import { distanceFromNetwork, type Graph } from './graph.ts';
 import { FIELD_H, FIELD_TOP, FIELD_W, MAX_LEVEL, PATH_WIDTH, models, towerFirerate, towerInfo, towerRange, type TowerInfo } from './data.ts';
@@ -19,19 +21,21 @@ const IDLE_SPIN: Record<string, number> = { tToxic: 1 / 3, tTime: 1 / 5, tHeal: 
 export class TowerLayer {
   readonly towers: PlacedTower[] = [];
   selected: PlacedTower | null = null;
-  readonly batches = new Map<string, LineModelBatch>();
+  /** 3D tower models, added to the scene by the owner; `groundY` supplies terrain height for a field position. */
+  readonly group = new THREE.Group();
+  groundY: (x: number, y: number) => number = () => 0;
+  private models = new Map<PlacedTower, TowerModel>();
+  private ghostModels = new Map<string, TowerModel>();
   private rings = new LineModelBatch(circleSegments(24), 256);
   private dots = new LineModelBatch(dottedCircleSegments(120), 24);
   private cursorLines = new LineModelBatch([0, 0, 1, 0], 64, { tailFade: true });
   private ticks = new LineModelBatch([0, 0, 8, 0], 256 * (MAX_LEVEL + 1)); // level markers: level+1 rotating radial ticks
   private stepCount = 0;
   readonly meshes: LineModelBatch['mesh'][] = [this.rings.mesh, this.dots.mesh, this.ticks.mesh, this.cursorLines.mesh];
+  private shown = new THREE.Group();
 
   constructor(private graph: Graph) {
-    for (const key of Object.keys(models.towers)) {
-      const b = new LineModelBatch(models.towers[key], 256);
-      this.batches.set(key, b); this.meshes.push(b.mesh);
-    }
+    this.group.add(this.shown);
   }
 
   /**
@@ -52,7 +56,7 @@ export class TowerLayer {
     return t;
   }
 
-  clear(): void { this.towers.length = 0; this.selected = null; }
+  clear(): void { this.towers.length = 0; this.selected = null; this.shown.clear(); this.models.clear(); }
 
   /** Nearest placed tower under the cursor (within its base circle + a small margin). */
   pickAt(x: number, y: number): PlacedTower | null {
@@ -125,14 +129,30 @@ export class TowerLayer {
     }
   }
 
+  private syncModels(ghost: { key: string; x: number; y: number; affordable: boolean } | null): void {
+    for (const [t, m] of this.models) if (!this.towers.includes(t)) { this.shown.remove(m.root); this.models.delete(t); }
+    for (const t of this.towers) {
+      let m = this.models.get(t);
+      if (!m) { m = buildTowerModel(t.key, t.info.color, t.info.baseRadius); this.models.set(t, m); this.shown.add(m.root); }
+      m.root.position.set(t.x, this.groundY(t.x, t.y), t.y);
+      m.head.rotation.y = -(t.draw * Math.PI) / 180;
+    }
+    for (const [k, m] of this.ghostModels) m.root.visible = false;
+    if (ghost) {
+      let m = this.ghostModels.get(ghost.key);
+      if (!m) { m = buildTowerModel(ghost.key, towerInfo[ghost.key].color, towerInfo[ghost.key].baseRadius, true); this.ghostModels.set(ghost.key, m); this.group.add(m.root); }
+      const ok = ghost.affordable && this.canPlace(ghost.x, ghost.y, towerInfo[ghost.key].baseRadius);
+      for (const mt of m.mats) mt.color.copy(ok ? mt.userData.orig : TINT_RED);
+      m.root.visible = true; m.root.position.set(ghost.x, this.groundY(ghost.x, ghost.y) + 0.5, ghost.y);
+    }
+  }
+
   /** ghost = tower being placed (follows cursor); hover = cursor position used to show radii of a placed tower. */
   render(ghost: { key: string; x: number; y: number; affordable: boolean } | null, hover: { x: number; y: number } | null, pointer: { x: number; y: number } = { x: -1000, y: -1000 }): void {
     this.rings.begin(); this.dots.begin(); this.ticks.begin(); this.cursorLines.begin();
-    for (const b of this.batches.values()) b.begin();
     for (const t of this.towers) {
       const [r, g, b] = t.info.color.map((c) => c / 255);
       this.pushBase(t.x, t.y, t.info, t.level, r, g, b, 0.7);
-      this.batches.get(t.key)!.push(t.x, t.y, (t.draw * Math.PI) / 180, 1, r, g, b, 1);
       if (t.key === 'tCursor') { // line to the mouse, bright at the cursor end (draw_line_color black->tower colour, alpha 0.3)
         const dx = t.x - pointer.x, dy = t.y - pointer.y;
         this.cursorLines.push(pointer.x, pointer.y, Math.atan2(dy, dx), Math.hypot(dx, dy), r, g, b, 0.3);
@@ -148,13 +168,12 @@ export class TowerLayer {
       const info = towerInfo[ghost.key];
       const [r, g, b] = ghost.affordable && this.canPlace(ghost.x, ghost.y, info.baseRadius) ? info.color.map((c) => c / 255) : [1, 0.15, 0.15];
       this.pushBase(ghost.x, ghost.y, info, 0, r, g, b, 0.8);
-      this.batches.get(ghost.key)!.push(ghost.x, ghost.y, 0, 1, r, g, b, 1);
       this.pushRadii(ghost.x, ghost.y, info, null, r, g, b, 0.9);
     } else if (hover) {
       const t = this.pickAt(hover.x, hover.y);
       if (t && t !== sel) this.pushRadii(t.x, t.y, t.info, t.level, t.info.color[0] / 255, t.info.color[1] / 255, t.info.color[2] / 255, 0.6);
     }
     this.rings.end(); this.dots.end(); this.ticks.end(); this.cursorLines.end();
-    for (const b of this.batches.values()) b.end();
+    this.syncModels(ghost);
   }
 }
