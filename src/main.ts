@@ -154,7 +154,7 @@ function loadMap(name: string) {
   enemyBatches.forEach((b, i) => { b.mesh.renderOrder = 10 + i; view.top2d.add(b.mesh); });
   towers.meshes.forEach((m) => { m.renderOrder = 5; flat.add(m); });
   towers.groundY = (x, y) => terrain.heightAt(x, y); world.add(towers.group);
-  hpBars = new HpBars(MAX_ENEMIES); hpBars.mesh.renderOrder = 9; flat.add(hpBars.mesh);
+  hpBars = new HpBars(MAX_ENEMIES); hpBars.mesh.renderOrder = 9; world.add(hpBars.mesh);
   bullets.meshes.forEach((m) => { m.renderOrder = 8; flat.add(m); });
   fx.mesh.renderOrder = 7; flat.add(fx.mesh);
   hpText.mesh.renderOrder = 12; world.add(hpText.mesh); numbers.mesh.renderOrder = 13; world.add(numbers.mesh); moneyNums.mesh.renderOrder = 14; world.add(moneyNums.mesh);
@@ -240,14 +240,15 @@ addEventListener('pointermove', (e) => {
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.moved && Math.hypot(dx, dy) < 5) return;
-  drag.moved = true; drag.x = e.clientX; drag.y = e.clientY; view.panBy(dx, dy);
+  drag.moved = true; drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.button === 2) view.orbitBy(dx, dy); else view.panBy(dx, dy);
 });
 renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); view.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('pointerdown', (e) => {
   toField(e);
   if (e.button === 1) { e.preventDefault(); drag = { x: e.clientX, y: e.clientY, moved: true, button: 1 }; return; } // middle-drag pans
-  if (e.button === 2) { drag = { x: e.clientX, y: e.clientY, moved: false, button: 2 }; return; } // right-click cancels the pending tower / selection; right-drag pans
+  if (e.button === 2) { drag = { x: e.clientX, y: e.clientY, moved: false, button: 2 }; return; } // right-click cancels the pending tower / selection; right-drag orbits the camera
   pointer.down = true;
   if (phase !== 'playing' || state.tool !== 'tower') return;
   if (state.towerKey) {
