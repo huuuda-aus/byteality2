@@ -1,11 +1,14 @@
-import '@fontsource/press-start-2p/index.css';
+import '@fontsource/fredoka/400.css';
+import '@fontsource/fredoka/600.css';
 import * as THREE from 'three';
+import { View3D } from './view3d.ts';
+import { EnemyBalls, HpBars } from './enemyBalls.ts';
+import { buildTerrain, type Terrain } from './terrain.ts';
 import { FIELD_H, FIELD_W, ENEMY_NAMES, ENEMY_SCALE, campaign, mapsByName, models, towerInfo } from './data.ts';
 import { buildGraph, type Graph } from './graph.ts';
 import { EnemySim } from './enemies.ts';
 import { LineModelBatch } from './lineBatch.ts';
 import { FragmentSystem } from './fragments.ts';
-import { buildStaticScene } from './scene.ts';
 import { TowerLayer } from './towers.ts';
 import { BulletSystem } from './bullets.ts';
 import { Effects } from './effects.ts';
@@ -26,22 +29,16 @@ import { Kind } from './bullets.ts';
 const STEP = 1 / 60;
 const MAX_ENEMIES = 30000;
 
-// ---- renderer / camera (y-down, 640x480 logical field, letterboxed 4:3) ----
+// ---- 3D view: orthographic, isometric-ish; field (x, y) lives on the ground plane at world (x, 0, y) ----
+const TOP_INSET = 104; // px reserved for the top bar
 const stage = document.getElementById('stage')!;
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setClearColor(0x000000);
 const frameEl = document.createElement('div'); frameEl.id = 'frame';
-stage.append(frameEl); frameEl.append(renderer.domElement);
+stage.append(frameEl);
+const view = new View3D(frameEl);
+const renderer = view.renderer, scene = view.scene;
 let toolbar: ReturnType<typeof createToolbar> | null = null;
 let hudLayout: (() => void) | null = null;
-const camera = new THREE.OrthographicCamera(0, FIELD_W, 0, FIELD_H, -10, 10);
-function resize() {
-  const s = Math.min(innerWidth / FIELD_W, innerHeight / FIELD_H);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(Math.floor(FIELD_W * s), Math.floor(FIELD_H * s));
-  toolbar?.layout(Math.floor(FIELD_W * s), Math.floor(FIELD_H * s));
-  hudLayout?.();
-}
+function resize() { view.resize(TOP_INSET); hudLayout?.(); }
 addEventListener('resize', resize); resize();
 
 // ---- game state, rebuilt on map change ----
@@ -65,28 +62,53 @@ const state: UiState = {
   damageNumbers: save.data.settings.damageNumbers, allDamage: save.data.settings.allDamage, hpMode: save.data.settings.hpMode,
 };
 
-const scene = new THREE.Scene();
+
 const numbers = new FloatingNumbers();
 const hpText = new HpText();
 const moneyNums = new MoneyNumbers();
 const colorOf = (key: string): [number, number, number] => [towerInfo[key].color[0] / 255, towerInfo[key].color[1] / 255, towerInfo[key].color[2] / 255];
 const fragments = new FragmentSystem(Number(params.get('frag')) || 262144); // ?frag=20000 helps software-GL testing
 let world: THREE.Group | null = null;
+let terrain: Terrain;
 let graph: Graph, sim: EnemySim, towers: TowerLayer, waveRunner: WaveRunner, bullets: BulletSystem, fx: Effects, combat: CombatCtx;
-let hpBars: LineModelBatch;
+let hpBars: HpBars;
 let buildings: Buildings;
 let phase: 'playing' | 'over' | 'won' = 'playing';
 let levelSteps = 0; // steps since the first wave was called; the level lasts map.steps
 let levelMap = mapsByName[state.map];
 let enemyBatches: LineModelBatch[] = [];
+let enemyBalls: EnemyBalls;
 let kills = 0;
 let money = 0;
 let levelTowers = new Set<string>();
 let quota: Record<string, number> = {}; // towers still placeable on this level (original: quotum[])
 const keyByName = Object.fromEntries(Object.entries(towerInfo).map(([k, t]) => [t.name.toLowerCase(), k]));
 
+/** Enemy model without its outline circle (short chords on the outer radius): only the type symbol remains. */
+function symbolOnly(seg: ArrayLike<number>): number[] {
+  let R = 0; for (let i = 0; i < seg.length; i += 2) R = Math.max(R, Math.hypot(seg[i], seg[i + 1]));
+  const out: number[] = [];
+  for (let i = 0; i < seg.length; i += 4) {
+    const r1 = Math.hypot(seg[i], seg[i + 1]), r2 = Math.hypot(seg[i + 2], seg[i + 3]), len = Math.hypot(seg[i + 2] - seg[i], seg[i + 3] - seg[i + 1]);
+    if (r1 > R - 0.4 && r2 > R - 0.4 && len < R * 0.7) continue;
+    out.push(seg[i], seg[i + 1], seg[i + 2], seg[i + 3]);
+  }
+  return out;
+}
+
+/** Six-pointed crown for the boss, as a closed outline of line segments (model units, before the boss scale). */
+function crown(): number[] {
+  const pts: [number, number][] = [[-6, 3.5]];
+  for (let i = 0; i < 6; i++) { pts.push([-6 + i * 2.4, -3.5]); if (i < 5) pts.push([-4.8 + i * 2.4, 0]); }
+  pts.push([6, 3.5], [-6, 3.5]);
+  const out: number[] = [];
+  for (let i = 0; i + 1 < pts.length; i++) out.push(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]);
+  return out;
+}
+
 function loadMap(name: string) {
   if (world) scene.remove(world);
+  view.ground2d.clear(); view.air2d.clear(); view.top2d.clear();
   const map = mapsByName[name];
   graph = buildGraph(map);
   sim = new EnemySim(graph, MAX_ENEMIES);
@@ -124,16 +146,19 @@ function loadMap(name: string) {
   levelTowers = new Set(Object.keys(quota));
   state.towerKey = null; toolbar?.setSelected(null);
   world = new THREE.Group();
-  world.add(buildStaticScene(graph));
-  buildings.meshes.forEach((mesh) => { mesh.renderOrder = 6; world!.add(mesh); });
-  enemyBatches = ENEMY_NAMES.map((n) => new LineModelBatch(models.enemies[n], MAX_ENEMIES));
-  enemyBatches.forEach((b, i) => { b.mesh.renderOrder = 10 + i; world!.add(b.mesh); });
-  towers.meshes.forEach((m) => { m.renderOrder = 5; world!.add(m); });
-  hpBars = new LineModelBatch([-1, 0, 1, 0], MAX_ENEMIES); hpBars.mesh.renderOrder = 9; world.add(hpBars.mesh);
-  bullets.meshes.forEach((m) => { m.renderOrder = 8; world!.add(m); });
-  fx.mesh.renderOrder = 7; world.add(fx.mesh);
+  terrain = buildTerrain(graph, name); world.add(terrain.group);
+  const flat = view.ground2d, air = view.air2d;
+  buildings.meshes.forEach((mesh) => { mesh.renderOrder = 6; flat.add(mesh); });
+  enemyBatches = ENEMY_NAMES.map((n) => new LineModelBatch(n === 'boss' ? crown() : symbolOnly(models.enemies[n]), MAX_ENEMIES));
+  enemyBalls = new EnemyBalls(MAX_ENEMIES); world.add(enemyBalls.mesh);
+  enemyBatches.forEach((b, i) => { b.mesh.renderOrder = 10 + i; view.top2d.add(b.mesh); });
+  towers.meshes.forEach((m) => { m.renderOrder = 5; flat.add(m); });
+  towers.groundY = (x, y) => terrain.heightAt(x, y); world.add(towers.group);
+  hpBars = new HpBars(MAX_ENEMIES); hpBars.mesh.renderOrder = 9; flat.add(hpBars.mesh);
+  bullets.meshes.forEach((m) => { m.renderOrder = 8; flat.add(m); });
+  fx.mesh.renderOrder = 7; flat.add(fx.mesh);
   hpText.mesh.renderOrder = 12; world.add(hpText.mesh); numbers.mesh.renderOrder = 13; world.add(numbers.mesh); moneyNums.mesh.renderOrder = 14; world.add(moneyNums.mesh);
-  world.add(fragments.mesh); fragments.mesh.renderOrder = 20;
+  air.add(fragments.mesh); fragments.mesh.renderOrder = 20;
   scene.add(world);
 }
 
@@ -142,20 +167,21 @@ const tracking = () => !state.freeBuild && campaignNames.has(state.map); // gene
 function announce(list: Achievement[]) { for (const a of list) toaster.show(a.title, a.desc); }
 function earn(v: number) { money += v; sfx.money(); if (tracking()) { save.data.stats.creditsEarned += v; save.dirty(); } }
 
-/** Where flying money goes: the credits counter, converted from page pixels to field coordinates. */
-function moneyTarget(): { x: number; y: number } {
-  const p = hud.creditsPoint(), r = renderer.domElement.getBoundingClientRect();
-  return p ? { x: ((p.x - r.left) / r.width) * FIELD_W, y: ((p.y - r.top) / r.height) * FIELD_H } : { x: 560, y: 20 };
+/** Where flying money goes: the credits counter, unprojected into the scene at the depth of the launch point. */
+function moneyDest(x: number, y: number): THREE.Vector3 {
+  const ref = new THREE.Vector3(x, 12, y), p = hud.creditsPoint();
+  return p ? view.unprojectAtDepthOf(ref, p.x, p.y) : ref.clone().add(new THREE.Vector3(200, 0, -200));
 }
+const moneyStart = (x: number, y: number) => new THREE.Vector3(x, 12, y);
 
 function killEnemy(i: number) {
   const type = sim.type[i];
   fragments.explodeModel(models.enemies[ENEMY_NAMES[type]], sim.x[i], sim.y[i], (sim.angle[i] * Math.PI) / 180, ENEMY_SCALE[type],
     Math.min(1, sim.col[3 * i] + 0.25), Math.min(1, sim.col[3 * i + 1] + 0.25), Math.min(1, sim.col[3 * i + 2] + 0.25), type === 9 ? 1.6 : 1, type === 9 ? 3 : 2);
   // the reward flies to the credits counter and is paid on arrival (too many in flight: pay at once)
-  const dest = moneyTarget(), big = type === 9;
-  if (!moneyNums.spawn(sim.x[i], sim.y[i], sim.value[i], dest, big)) earn(sim.value[i]);
-  for (const mt of towers.moneyTowersNear(sim.x[i], sim.y[i])) if (!moneyNums.spawn(mt.x, mt.y, mt.value, dest)) earn(mt.value);
+  const big = type === 9;
+  if (!moneyNums.spawn(moneyStart(sim.x[i], sim.y[i]), sim.value[i], moneyDest(sim.x[i], sim.y[i]), big)) earn(sim.value[i]);
+  for (const mt of towers.moneyTowersNear(sim.x[i], sim.y[i])) if (!moneyNums.spawn(moneyStart(mt.x, mt.y), mt.value, moneyDest(mt.x, mt.y))) earn(mt.value);
   sim.remove(i);
   kills++;
   sfx.kill(type === 9);
@@ -205,17 +231,23 @@ function spawnStress(n: number) {
 
 // ---- input ----
 const pointer = { x: -1000, y: -1000, down: false, inside: false };
-const toField = (e: PointerEvent) => {
-  const r = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((e.clientX - r.left) / r.width) * FIELD_W; pointer.y = ((e.clientY - r.top) / r.height) * FIELD_H;
-};
+const toField = (e: PointerEvent) => { const f = view.toField(e.clientX, e.clientY); pointer.x = f.x; pointer.y = f.y; };
 renderer.domElement.addEventListener('pointermove', toField);
 renderer.domElement.addEventListener('pointerenter', () => { pointer.inside = true; });
 renderer.domElement.addEventListener('pointerleave', () => { pointer.inside = false; });
+let drag: { x: number; y: number; moved: boolean; button: number } | null = null;
+addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+  drag.moved = true; drag.x = e.clientX; drag.y = e.clientY; view.panBy(dx, dy);
+});
+renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); view.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('pointerdown', (e) => {
   toField(e);
-  if (e.button === 2) { selectTower(null); towers.select(null); return; } // right-click cancels the pending tower / selection
+  if (e.button === 1) { e.preventDefault(); drag = { x: e.clientX, y: e.clientY, moved: true, button: 1 }; return; } // middle-drag pans
+  if (e.button === 2) { drag = { x: e.clientX, y: e.clientY, moved: false, button: 2 }; return; } // right-click cancels the pending tower / selection; right-drag pans
   pointer.down = true;
   if (phase !== 'playing' || state.tool !== 'tower') return;
   if (state.towerKey) {
@@ -239,9 +271,14 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     }
   }
 });
-addEventListener('pointerup', () => { pointer.down = false; });
+addEventListener('pointerup', () => {
+  pointer.down = false;
+  if (drag && drag.button === 2 && !drag.moved) { selectTower(null); towers.select(null); }
+  drag = null;
+});
 addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); waveRunner.nextWave(); }
+  if (e.code === 'Home') view.resetView();
   if (e.code === 'Escape') { selectTower(null); towers.select(null); }
   if (e.code === 'KeyU') upgradeSelected();
 });
@@ -379,14 +416,11 @@ function frame(now: number) {
 
   for (const b of enemyBatches) b.begin();
   for (let i = 0; i < sim.n; i++) {
-    enemyBatches[sim.type[i]].push(sim.x[i], sim.y[i], (sim.angle[i] * Math.PI) / 180, ENEMY_SCALE[sim.type[i]], sim.col[3 * i], sim.col[3 * i + 1], sim.col[3 * i + 2], 1);
+    enemyBatches[sim.type[i]].push(sim.x[i], sim.y[i], (sim.angle[i] * Math.PI) / 180, ENEMY_SCALE[sim.type[i]], Math.min(1, sim.col[3 * i] + 0.4), Math.min(1, sim.col[3 * i + 1] + 0.4), Math.min(1, sim.col[3 * i + 2] + 0.4), 1);
   }
   for (const b of enemyBatches) b.end();
-  hpBars.begin();
-  for (let i = 0; i < sim.n; i++) {
-    if (sim.maxHp[i] > 1) hpBars.push(sim.x[i], sim.y[i] - 9, 0, (10 * Math.max(0, sim.hp[i])) / sim.maxHp[i], sim.col[3 * i], sim.col[3 * i + 1], sim.col[3 * i + 2], 1);
-  }
-  hpBars.end();
+  enemyBalls.update(sim.n, sim.x, sim.y, sim.col);
+  hpBars.update(sim.n, sim.x, sim.y, sim.hp, sim.maxHp);
   if (tracking() && waveRunner.currentWave > save.data.maxWave) { save.data.maxWave = waveRunner.currentWave; save.dirty(); if (save.data.maxWave === 20 || save.data.maxWave === 100) announce(checkAchievements()); }
   if (waveRunner.currentWave !== lastWave) { if (waveRunner.currentWave > 0) sfx.wave(); lastWave = waveRunner.currentWave; }
   const st = save.data.settings; // persist the display and sound settings when they change
@@ -404,7 +438,8 @@ function frame(now: number) {
   card.update(shown ? { info: shown.info, level: shown.level, upgradeCost: towers.upgradeCost(shown), money, free: state.freeBuild, selected: shown === towers.selected } : null);
   toolbar!.update((k) => ({ show: state.freeBuild || levelTowers.has(k), left: state.freeBuild ? null : quota[k] ?? 0, afford: state.freeBuild || money >= towerInfo[k].cost[0] }));
   fragments.flush();
-  renderer.render(scene, camera);
+  terrain.update((now - t0) / 1000);
+  view.render();
 
   const w = waveRunner.currentWave, wd = waveRunner.waves[w];
   hud.update({

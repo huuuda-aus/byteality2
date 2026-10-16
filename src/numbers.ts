@@ -1,15 +1,12 @@
 import * as THREE from 'three';
-import { DynamicLines } from './dynLines.ts';
-import { PixelText } from './pixelText.ts';
+import { GlyphText } from './glyphText.ts';
 
 type RGB = [number, number, number];
-/** Size of one font pixel (field px) for damage numbers and HP text, which use the tiny 3x5 font (5 px tall). */
-const SMALL_PX = 1;
 const fmt = (n: number) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // original string_1000: 1234 -> "1.234"
 
 /**
  * Floating damage numbers (damageparticles): the number drifts along the hit direction at half the bullet speed,
- * decelerating to a stop; it lives 55-65 steps and fades over the second half.
+ * decelerating to a stop, while rising a little; it lives 55-65 steps and fades over the second half.
  */
 export class FloatingNumbers {
   enabled = true;
@@ -18,8 +15,8 @@ export class FloatingNumbers {
   private x: Float32Array; private y: Float32Array; private dx: Float32Array; private dy: Float32Array;
   private speed: Float32Array; private decel: Float32Array; private age: Int32Array; private life: Int32Array; private col: Float32Array;
   private text: string[] = [];
-  private pix = new PixelText(8000);
-  readonly mesh = this.pix.mesh;
+  private glyphs = new GlyphText(8000);
+  readonly mesh = this.glyphs.mesh;
 
   constructor(private cap = 2000) {
     const f = (c: number) => new Float32Array(c);
@@ -57,61 +54,60 @@ export class FloatingNumbers {
   clear(): void { this.n = 0; }
 
   render(): void {
-    this.pix.begin();
+    this.glyphs.begin();
     for (let i = 0; i < this.n; i++) {
-      const t = this.age[i] / this.life[i], a = t < 0.5 ? 1 : 2 * (1 - t); // alpha3(1, 1, 0)
-      this.pix.text(this.text[i], Math.round(this.x[i]), Math.round(this.y[i]), SMALL_PX, this.col[3 * i], this.col[3 * i + 1], this.col[3 * i + 2], a, 'center', 1);
+      const t = this.age[i] / this.life[i], a = t < 0.5 ? 1 : 2 * (1 - t);
+      this.glyphs.text(this.text[i], this.x[i], 14 + this.age[i] * 0.22, this.y[i], 7, this.col[3 * i], this.col[3 * i + 1], this.col[3 * i + 2], a, 'center');
     }
-    this.pix.end();
+    this.glyphs.end();
   }
 }
 
-/** Enemy hit point readouts (original enemy Draw): number right-aligned at (x-3, y+3), enemy colour. */
+/** Enemy hit point readouts under each enemy. */
 export class HpText {
   mode: 'off' | 'near' | 'always' = 'always';
-  private boxes = new DynamicLines(4000);
-  private pix = new PixelText(30000);
-  readonly mesh = new THREE.Group().add(this.boxes.mesh, this.pix.mesh);
-  static readonly MAX_ENEMIES_DRAWN = 3000; // keeps thousands of enemies readable and fast
+  private glyphs = new GlyphText(30000);
+  readonly mesh = this.glyphs.mesh;
+  static readonly MAX_ENEMIES_DRAWN = 1500; // keeps thousands of enemies readable and fast
 
   render(sim: { n: number; x: Float32Array; y: Float32Array; hp: Float32Array; col: Float32Array; selected: Uint8Array },
          pointer: { x: number; y: number; inside: boolean }): void {
-    this.boxes.begin(); this.pix.begin();
+    this.glyphs.begin();
     const n = Math.min(sim.n, HpText.MAX_ENEMIES_DRAWN);
     for (let i = 0; i < sim.n; i++) {
       const sel = sim.selected[i] === 1;
-      if (sel) this.boxes.rect(sim.x[i], sim.y[i], 8, sim.col[3 * i], sim.col[3 * i + 1], sim.col[3 * i + 2], 1); // selection box
       let a = 0;
       if (sel || (this.mode === 'always' && i < n)) a = 1;
       else if (this.mode !== 'off' && pointer.inside) { const d = Math.hypot(sim.x[i] - pointer.x, sim.y[i] - pointer.y); if (d < 50) a = 1 - 0.02 * d; }
       if (a <= 0) continue;
-      this.pix.text(fmt(Math.max(1, Math.ceil(sim.hp[i]))), Math.round(sim.x[i] - 3), Math.round(sim.y[i] + 3 + 2.5), SMALL_PX, sim.col[3 * i], sim.col[3 * i + 1], sim.col[3 * i + 2], a, 'right', 1);
+      const r = 0.55 + 0.45 * sim.col[3 * i], g = 0.55 + 0.45 * sim.col[3 * i + 1], b = 0.55 + 0.45 * sim.col[3 * i + 2];
+      this.glyphs.text(fmt(Math.max(1, Math.ceil(sim.hp[i]))), sim.x[i], 9, sim.y[i], 4.6, r, g, b, a, 'center', 0, -2);
     }
-    this.boxes.end(); this.pix.end();
+    this.glyphs.end();
   }
 }
 
 /**
- * Flying money (moneyparticles / moneynumber): every kill launches its value as a number that flies in a straight line to the credits
- * counter, flickering between two colours, and is only credited when it arrives (after 40 + ceil(3*sqrt(value)) steps).
+ * Flying money: every kill launches its value as a number that flies in a straight line to the credits counter, flickering between two
+ * colours, and is only credited when it arrives (after 40 + ceil(3*sqrt(value)) steps).
  */
 export class MoneyNumbers {
-  private list: { x: number; y: number; vx: number; vy: number; age: number; life: number; value: number; big: boolean }[] = [];
-  private pix = new PixelText(12000);
-  readonly mesh = this.pix.mesh;
+  private list: { p: THREE.Vector3; v: THREE.Vector3; age: number; life: number; value: number; big: boolean }[] = [];
+  private glyphs = new GlyphText(12000);
+  readonly mesh = this.glyphs.mesh;
   static readonly MAX = 1500;
 
-  /** Returns false when too many are in flight; the caller then pays out immediately. */
-  spawn(x: number, y: number, value: number, target: { x: number; y: number }, big = false): boolean {
+  /** start/target are world positions (the target is the credits counter projected into the scene). Returns false when too many are in flight. */
+  spawn(start: THREE.Vector3, value: number, target: THREE.Vector3, big = false): boolean {
     if (this.list.length >= MoneyNumbers.MAX) return false;
     const life = 40 + Math.ceil(3 * Math.sqrt(value));
-    this.list.push({ x, y, vx: (target.x - x) / life, vy: (target.y - y) / life, age: 0, life, value, big });
+    this.list.push({ p: start.clone(), v: target.clone().sub(start).divideScalar(life), age: 0, life, value, big });
     return true;
   }
 
   step(onArrive: (value: number) => void): void {
     for (let i = this.list.length - 1; i >= 0; i--) {
-      const m = this.list[i]; m.x += m.vx; m.y += m.vy;
+      const m = this.list[i]; m.p.add(m.v);
       if (++m.age >= m.life) { onArrive(m.value); this.list.splice(i, 1); }
     }
   }
@@ -119,12 +115,12 @@ export class MoneyNumbers {
   clear(): void { this.list.length = 0; }
 
   render(): void {
-    this.pix.begin();
+    this.glyphs.begin();
     for (const m of this.list) {
-      const light = (m.life - m.age) % 12 < 6; // original: alarm mod 12 < 6 swaps to colour 2
-      const c: RGB = light ? [1, 1, 0.6] : [0, 0.2, 0.4];
-      this.pix.text(fmt(m.value), Math.round(m.x), Math.round(m.y), m.big ? 2 : 1, c[0], c[1], c[2], 1, 'center', 0);
+      const light = (m.life - m.age) % 12 < 6;
+      const c: RGB = light ? [1, 0.93, 0.45] : [0.4, 0.75, 1];
+      this.glyphs.text(fmt(m.value), m.p.x, m.p.y, m.p.z, m.big ? 13 : 9, c[0], c[1], c[2], 1, 'center');
     }
-    this.pix.end();
+    this.glyphs.end();
   }
 }
