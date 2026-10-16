@@ -16,7 +16,7 @@ export class View3D {
   readonly ground2d = new THREE.Group();
   readonly air2d = new THREE.Group();
   readonly top2d = new THREE.Group(); // flat symbols resting on top of the enemy spheres
-  readonly sun = new THREE.DirectionalLight(0xffe0b0, 2.6);
+  readonly sun = new THREE.DirectionalLight(0xcfe6ff, 2.2);
   private topInset = 0;
   private base = { cx: 0, cy: 0, hw: 1, hh: 1, W: 1, Hr: 1 };
   private zoom = 1; private panX = 0; private panY = 0; // pan in camera-view units
@@ -31,8 +31,8 @@ export class View3D {
     const cx = (SLAB.x0 + SLAB.x1) / 2, cz = (SLAB.z0 + SLAB.z1) / 2, dist = 1500;
     this.camera.position.set(cx + Math.sin(AZIMUTH) * Math.cos(PITCH) * dist, Math.sin(PITCH) * dist, cz + Math.cos(AZIMUTH) * Math.cos(PITCH) * dist);
     this.camera.lookAt(cx, 0, cz); this.camera.updateMatrixWorld(true);
-    // lights: a warm low sun from the upper left, cool fill from the sky
-    this.scene.add(new THREE.HemisphereLight(0xaec6ff, 0x2a3a2e, 1.15));
+    // lights: a cool key light from the upper left, bluish fill
+    this.scene.add(new THREE.HemisphereLight(0x9fd0ff, 0x0a1420, 1.3));
     this.sun.position.set(cx - 420, 560, cz - 260); this.sun.target.position.set(cx, 0, cz);
     this.sun.castShadow = true; this.sun.shadow.mapSize.set(2048, 2048); this.sun.shadow.bias = -0.0008; this.sun.shadow.normalBias = 0.6;
     const sc = this.sun.shadow.camera; sc.left = -520; sc.right = 520; sc.top = 380; sc.bottom = -380; sc.near = 50; sc.far = 1600;
