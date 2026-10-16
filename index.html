@@ -135,7 +135,12 @@
     #levels .need { text-transform: uppercase; letter-spacing: 1px; }
     #levels .bar h2, #achievements .bar h2 { font-weight: 600; color: #fff; }
     #levels .tabs button.on { background: #123044; }
-      /* circuit-board look: square, neon-edged panels */
+      /* Ko-fi QR, bottom right of the menu screens */
+    #kofi { position: absolute; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #bfeaf5; text-decoration: none; font: 12px/1.4 'Fredoka', system-ui, sans-serif; text-align: center; white-space: nowrap; transition: filter .12s; }
+    #kofi[hidden] { display: none; }
+    #kofi:hover { filter: drop-shadow(0 0 8px rgba(46, 230, 255, .5)); }
+    #kofi img { display: block; image-rendering: pixelated; border: 2px solid #2ee6ff; }
+    /* circuit-board look: square, neon-edged panels */
     .screen button, .screen .genlink, #levels .card, #achievements .ach, #levels .card canvas, .toast { border-radius: 0; }
     .screen button:hover:not(:disabled), #levels .tabs .genlink:hover { box-shadow: 0 0 12px rgba(46, 230, 255, .35); }
     #levels .card, #achievements .ach { background: rgba(11, 22, 32, .85); }

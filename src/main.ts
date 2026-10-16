@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { View3D } from './view3d.ts';
 import { EnemyBalls, HpBars } from './enemyBalls.ts';
 import { buildTerrain, type Terrain } from './terrain.ts';
+import { createKofi } from './kofi.ts';
 import { FIELD_H, FIELD_W, ENEMY_NAMES, ENEMY_SCALE, campaign, mapsByName, models, towerInfo } from './data.ts';
 import { buildGraph, type Graph } from './graph.ts';
 import { EnemySim } from './enemies.ts';
@@ -329,6 +330,7 @@ addEventListener('keydown', (e) => { if (e.code === 'Backquote') { panelOpen = !
 type Screen = 'title' | 'levels' | 'achievements' | 'game';
 let screen: Screen = playName || (params.get('map') && mapsByName[params.get('map')!]) ? 'game' : 'title';
 const toaster = createToaster(frameEl);
+const kofi = createKofi(frameEl);
 const achScreen = createAchievements(frameEl, () => showScreen(achFrom));
 let achFrom: Screen = 'title';
 function openAchievements(from: Screen) { achFrom = from; showScreen('achievements'); }
@@ -351,6 +353,7 @@ function showScreen(s: Screen) {
   titleScreen[s === 'title' ? 'show' : 'hide']();
   if (s === 'levels') levelScreen.show(); else levelScreen.hide();
   if (s === 'achievements') achScreen.show(); else achScreen.hide();
+  if (s === 'game') kofi.hide(); else kofi.show();
   syncPanel();
   for (const e of [menuBtn, soundBtn, document.getElementById('toolbar'), document.getElementById('credits'), document.getElementById('hud'), document.getElementById('card')]) if (e) (e as HTMLElement).style.visibility = s === 'game' ? '' : 'hidden';
 }
