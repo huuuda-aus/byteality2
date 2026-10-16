@@ -154,7 +154,7 @@ function loadMap(name: string) {
   enemyBatches.forEach((b, i) => { b.mesh.renderOrder = 10 + i; view.top2d.add(b.mesh); });
   towers.meshes.forEach((m) => { m.renderOrder = 5; flat.add(m); });
   towers.groundY = (x, y) => terrain.heightAt(x, y); world.add(towers.group);
-  hpBars = new HpBars(MAX_ENEMIES); hpBars.mesh.renderOrder = 9; flat.add(hpBars.mesh);
+  hpBars = new HpBars(MAX_ENEMIES); hpBars.mesh.renderOrder = 9; world.add(hpBars.mesh);
   bullets.meshes.forEach((m) => { m.renderOrder = 8; flat.add(m); });
   fx.mesh.renderOrder = 7; flat.add(fx.mesh);
   hpText.mesh.renderOrder = 12; world.add(hpText.mesh); numbers.mesh.renderOrder = 13; world.add(numbers.mesh); moneyNums.mesh.renderOrder = 14; world.add(moneyNums.mesh);

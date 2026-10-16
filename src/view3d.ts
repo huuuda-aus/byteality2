@@ -4,7 +4,7 @@ import { FIELD_H, FIELD_TOP, FIELD_W } from './data.ts';
 /** Slab the camera has to fit: the playfield plus a margin of scenery. */
 export const SLAB = { x0: -40, x1: FIELD_W + 40, z0: FIELD_TOP - 40, z1: FIELD_H + 40 };
 const DEG = Math.PI / 180;
-const AZIMUTH = 18 * DEG, PITCH = 50 * DEG;      // the default view
+const AZIMUTH = 0, PITCH = 90 * DEG;              // the default view: straight down, map upright
 const PITCH_MIN = 25 * DEG, PITCH_MAX = 90 * DEG; // the camera moves inside a cone standing on its tip at the map centre: from straight above down to 25 degrees over the table
 const ORBIT_SPEED = 0.006;                         // radians per dragged pixel
 const CAM_DIST = 1300, FOV = 35;                   // perspective camera: distance to the map centre, vertical field of view in degrees
